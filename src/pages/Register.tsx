@@ -5,6 +5,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { canonicalize } from '@/utils/json'
 import { sha256String } from '@/utils/crypto'
 import { downloadJsonFile } from '@/utils/download'
+import '@/js/military-data.js'
+import { triggerCreateUserDispatch } from '@/services/workflowService'
 import { loadUnitStructureFromBundle } from '@/utils/unitStructure'
 
 export default function Register() {
@@ -16,6 +18,9 @@ export default function Register() {
   const [orgRole, setOrgRole] = useState<'Unit_Admin' | 'Section_Manager' | 'Member'>('Member')
   const [unitId, setUnitId] = useState('')
   const [mos, setMos] = useState('')
+  const [branch, setBranch] = useState('')
+  const [rank, setRank] = useState('')
+  const [rankOptions, setRankOptions] = useState<{ value: string; label: string }[]>([])
   const [units, setUnits] = useState<{ id: string; name: string; uic?: string; ruc?: string; mcc?: string }[]>([])
   const [companyId, setCompanyId] = useState('')
   const [platoonId, setPlatoonId] = useState('')
@@ -40,6 +45,10 @@ export default function Register() {
       setError('MOS must be 4 digits')
       return
     }
+    if (branch && !rank) {
+      setError('Please select a rank for the chosen branch')
+      return
+    }
     if (companies.length > 0 && !companyId) {
       setError('Please select a Company')
       return
@@ -61,6 +70,8 @@ export default function Register() {
         user_id: userId,
         edipi,
         mos,
+        branch: branch || undefined,
+        rank: rank || undefined,
         org_role: orgRole,
         unit_id: unitId,
         company_id: companyId || undefined,
@@ -173,6 +184,41 @@ export default function Register() {
               onChange={e => setMos(e.target.value)}
               maxLength={4}
             />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Branch</label>
+              <select
+                className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
+                value={branch}
+                onChange={e => {
+                  const b = e.target.value
+                  setBranch(b)
+                  const md: any = (window as any).MilitaryData
+                  const options = md?.getRanksForBranch?.(b) || []
+                  setRankOptions(options)
+                  setRank('')
+                }}
+              >
+                <option value="">Select branch</option>
+                {((window as any).MilitaryData?.branches || []).map((br: any) => (
+                  <option key={br.value} value={br.value}>{br.label}</option>
+                ))}
+              </select>
+            </div>
+            {branch && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Rank</label>
+                <select
+                  className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
+                  value={rank}
+                  onChange={e => setRank(e.target.value)}
+                >
+                  <option value="">Select rank</option>
+                  {rankOptions.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <select
               className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
               value={orgRole}
@@ -264,36 +310,31 @@ export default function Register() {
           </div>
 
           <div className="space-y-4">
-            {previewUser && (
-              <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-2">User JSON</h3>
-                <pre className="text-sm text-gray-300 overflow-auto max-h-64">{JSON.stringify(previewUser, null, 2)}</pre>
-              </div>
-            )}
-            {previewProgress && (
-              <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-2">Initial Progress JSON</h3>
-                <pre className="text-sm text-gray-300 overflow-auto max-h-64">{JSON.stringify(previewProgress, null, 2)}</pre>
-              </div>
-            )}
             {(previewUser || previewProgress) && (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    if (!previewUser) { alert('Generate files first'); return }
-                    alert('Submit would trigger a secure workflow in the PoC. For now, use Create to download JSON files and add them to the repository.')
-                  }}
-                  className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
-                >
-                  Submit
-                </button>
-                <button
-                  onClick={handleDownload}
-                  className="w-full px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"
-                >
-                  Create
-                </button>
-              </div>
+              <button
+                onClick={async () => {
+                  if (!previewUser) { alert('Generate files first'); return }
+                  try {
+                    await triggerCreateUserDispatch('SemperAdmin', 'Process-Point-Data', {
+                      user: previewUser,
+                      progress: previewProgress || undefined
+                    })
+                    // Also download the files locally (silent create) for records
+                    downloadJsonFile(`user_${previewUser.user_id}.json`, previewUser)
+                    if (previewProgress) {
+                      downloadJsonFile(`progress_${previewProgress.member_user_id}.json`, previewProgress)
+                    }
+                    // Seamless: login and go to dashboard
+                    login(previewUser)
+                    navigate('/dashboard')
+                  } catch (e: any) {
+                    alert(`Submit failed: ${e?.message || 'Unknown error'}`)
+                  }
+                }}
+                className="w-full px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"
+              >
+                Submit
+              </button>
             )}
           </div>
         </div>

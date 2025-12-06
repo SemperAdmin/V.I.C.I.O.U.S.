@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import LandingPage from './pages/LandingPage'
 import Dashboard from './pages/Dashboard'
@@ -11,7 +11,7 @@ function App() {
   const { isAuthenticated } = useAuthStore()
 
   return (
-    <Router>
+    <Router basename={import.meta.env.BASE_URL}>
       <div className="min-h-screen bg-github-dark text-white">
         <Routes>
           <Route path="/" element={isAuthenticated ? <Dashboard /> : <LandingPage />} />
@@ -20,6 +20,7 @@ function App() {
           <Route path="/history/:owner/:repo/*" element={<HistoryView />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/register" element={<Register />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
           
         </Routes>
       </div>

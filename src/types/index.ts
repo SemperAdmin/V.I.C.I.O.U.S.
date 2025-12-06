@@ -2,6 +2,8 @@ export interface User {
   user_id: string
   edipi: string
   mos: string
+  branch?: string
+  rank?: string
   org_role: 'Unit_Admin' | 'Section_Manager' | 'Member'
   unit_id: string
   company_id?: string

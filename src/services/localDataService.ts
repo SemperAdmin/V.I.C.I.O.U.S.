@@ -4,6 +4,8 @@ export interface LocalUserProfile {
   user_id: string
   edipi: string
   mos: string
+  branch?: string
+  rank?: string
   org_role: string
   unit_id: string
   company_id?: string

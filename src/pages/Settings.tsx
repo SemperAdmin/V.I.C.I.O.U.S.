@@ -17,6 +17,7 @@ export default function Settings() {
   const [fontSize, setFontSize] = useState('14')
   const [unitStructure, setUnitStructure] = useState<string>('')
   const [structureLoaded, setStructureLoaded] = useState(false)
+  const [ghToken, setGhToken] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +37,8 @@ export default function Settings() {
       }
     }
     load()
+    const token = localStorage.getItem('GH_TOKEN') || ''
+    setGhToken(token ? token.replace(/.(?=.{4})/g, '*') : '')
   }, [user])
 
   const handleSave = () => {
@@ -237,6 +240,48 @@ export default function Settings() {
               <Save className="w-4 h-4 mr-2" />
               Save Settings
             </button>
+          </div>
+
+          {/* Integrations */}
+          <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl p-6 mt-8">
+            <h2 className="text-xl font-semibold text-white mb-4">Integrations</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">GitHub Token (PAT)</label>
+                <input
+                  type="password"
+                  value={ghToken}
+                  onChange={(e) => setGhToken(e.target.value)}
+                  placeholder="Paste token to enable repository_dispatch"
+                  className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (!ghToken) { alert('Enter a token'); return }
+                      // Store raw when user types; if masked, ask to re-enter
+                      if (ghToken.includes('*')) { alert('Please paste full token value'); return }
+                      localStorage.setItem('GH_TOKEN', ghToken)
+                      setGhToken(ghToken.replace(/.(?=.{4})/g, '*'))
+                      alert('Token saved locally')
+                    }}
+                    className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"
+                  >
+                    Save Token
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem('GH_TOKEN')
+                      setGhToken('')
+                      alert('Token cleared')
+                    }}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+                  >
+                    Clear Token
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>
