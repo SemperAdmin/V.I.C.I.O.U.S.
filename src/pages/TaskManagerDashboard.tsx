@@ -5,14 +5,19 @@ import { fetchJson, LocalUserProfile, UsersIndexEntry, getChecklistByUnit, listM
 import { sbListUsers } from '@/services/supabaseDataService'
 import { listSections } from '@/utils/unitStructure'
 import { listSubTasks, createSubTask, updateSubTask, deleteSubTask, UnitSubTask } from '@/utils/unitTasks'
+import { sbUpsertProgress } from '@/services/supabaseDataService'
+import { canonicalize } from '@/utils/json'
+import { sha256String } from '@/utils/crypto'
+import { listForms } from '@/utils/formsStore'
 
 export default function TaskManagerDashboard() {
   const { user } = useAuthStore()
   const [tab, setTab] = useState<'inbound' | 'outbound' | 'tasks'>('inbound')
   const [memberMap, setMemberMap] = useState<Record<string, LocalUserProfile>>({})
   const [taskLabels, setTaskLabels] = useState<Record<string, { section_name: string; description: string }>>({})
+  const [sectionDisplayMap, setSectionDisplayMap] = useState<Record<string, string>>({})
   const [inboundGroups, setInboundGroups] = useState<Record<string, string[]>>({})
-  const [outboundGroups, setOutboundGroups] = useState<Record<string, { member_user_id: string; cleared_at_timestamp?: string }[]>>({})
+  const [outboundGroups, setOutboundGroups] = useState<Record<string, string[]>>({})
   const [sectionLabel, setSectionLabel] = useState('')
   const [scopedTasks, setScopedTasks] = useState<Array<{ section: string; description: string; location?: string; instructions?: string; responsible: string }>>([])
   const [scopedSubTasks, setScopedSubTasks] = useState<UnitSubTask[]>([])
@@ -65,35 +70,99 @@ export default function TaskManagerDashboard() {
       setTaskLabels(labels)
 
       const members = await listMembers()
+      // Build section display name map (code -> display)
+      const displayMap: Record<string, string> = {}
+      try {
+        const allSecs = await listSections(unitKey)
+        for (const s of allSecs) {
+          displayMap[s.section_name] = ((s as any).display_name || s.section_name)
+        }
+      } catch {}
+      setSectionDisplayMap(displayMap)
+      // Resolve user's section and load tasks from Supabase unit_sub_tasks
+      let sectionTaskIds = new Set<string>()
+      try {
+        const secs = await listSections(unitKey)
+        const byId = secs.find(s => String(s.id) === String(user.platoon_id))
+        const byCode = secs.find(s => s.section_name === user.platoon_id)
+        const byDisplay = secs.find(s => (s as any).display_name === user.platoon_id)
+        const sec = byId || byCode || byDisplay || null
+        const secId = sec ? sec.id : null
+        const secCode = sec ? sec.section_name : (user.platoon_id as string)
+        const secDisplay = sec ? ((sec as any).display_name || '') : ''
+        const subTasks = await listSubTasks(unitKey)
+        for (const t of subTasks) {
+          const matchesSectionId = secId ? String(t.section_id) === String(secId) : false
+          const matchesCode = secCode ? String(t.sub_task_id || '').startsWith(`${secCode}-`) : false
+          const matchesDisplayCode = secDisplay ? String(t.sub_task_id || '').startsWith(`${secDisplay}-`) : false
+          if (matchesSectionId || matchesCode || matchesDisplayCode) {
+            sectionTaskIds.add(t.sub_task_id)
+          }
+        }
+      } catch {}
+      // Determine form-kind task id sets
+      const ruc = (user.unit_id || '').includes('-') ? (user.unit_id || '').split('-')[1] : (user.unit_id || '')
+      let inboundTaskIds = new Set<string>()
+      let outboundTaskIds = new Set<string>()
+      try {
+        const forms = await listForms(ruc)
+        inboundTaskIds = new Set(forms.filter(f => f.kind === 'Inbound').flatMap(f => f.task_ids))
+        outboundTaskIds = new Set(forms.filter(f => f.kind === 'Outbound').flatMap(f => f.task_ids))
+      } catch {}
+      // Fallback: if form sets are empty, use all section tasks to populate UI so managers see data
+      if (inboundTaskIds.size === 0) inboundTaskIds = new Set(sectionTaskIds)
+      if (outboundTaskIds.size === 0) outboundTaskIds = new Set(sectionTaskIds)
       const sectionMembers = Object.values(profiles).filter(p => p.unit_id === user.unit_id && (!!user.platoon_id ? String(p.platoon_id) === String(user.platoon_id) : true))
-      const sectionIds = new Set(sectionMembers.map(p => p.user_id))
-      setDefaultResponsible(sectionMembers.map(p => p.edipi))
+      const sectionEdipis = new Set(sectionMembers.map(p => p.edipi))
+      setDefaultResponsible(Array.from(sectionEdipis))
 
       const responsibleSet = new Set<string>()
       for (const sec of checklist.sections) {
         for (const st of sec.sub_tasks) {
-          if (st.responsible_user_id.some(id => sectionIds.has(id))) responsibleSet.add(st.sub_task_id)
+          if ((st.responsible_user_id || []).length === 0 || st.responsible_user_id.some(id => sectionEdipis.has(id))) {
+            responsibleSet.add(st.sub_task_id)
+          }
         }
       }
 
-      const inbound: Record<string, string[]> = {}
-      const outbound: Record<string, { member_user_id: string; cleared_at_timestamp?: string }[]> = {}
+      const inboundByTask: Record<string, Set<string>> = {}
+      const outboundByTask: Record<string, Set<string>> = {}
       for (const m of members.filter(m => m.unit_id === user.unit_id)) {
         const progress = await getProgressByMember(m.member_user_id)
+        if (import.meta.env.VITE_USE_SUPABASE === '1' && (progress.progress_tasks || []).length === 0) {
+          const toSeed = Array.from(sectionTaskIds)
+          if (toSeed.length) {
+            const seeded = {
+              member_user_id: m.member_user_id,
+              unit_id: user.unit_id,
+              official_checkin_timestamp: progress.official_checkin_timestamp || new Date().toISOString(),
+              current_file_sha: '',
+              progress_tasks: toSeed.map(id => ({ sub_task_id: id, status: 'Pending' as const })),
+            }
+            const canon = canonicalize(seeded)
+            const sha = await sha256String(canon)
+            seeded.current_file_sha = sha
+            try { await sbUpsertProgress(seeded as any) } catch {}
+          }
+        }
         for (const t of progress.progress_tasks) {
           if (responsibleSet.has(t.sub_task_id)) {
+            const subId = t.sub_task_id
             if (t.status === 'Pending') {
-              inbound[t.sub_task_id] = Array.from(new Set([...(inbound[t.sub_task_id] || []), m.member_user_id]))
-            } else if (t.status === 'Cleared' && t.cleared_by_user_id && sectionIds.has(t.cleared_by_user_id)) {
-              const list = outbound[t.sub_task_id] || []
-              list.push({ member_user_id: m.member_user_id, cleared_at_timestamp: t.cleared_at_timestamp })
-              outbound[t.sub_task_id] = list
+              if (sectionTaskIds.has(subId) && inboundTaskIds.has(subId)) {
+                if (!inboundByTask[subId]) inboundByTask[subId] = new Set()
+                inboundByTask[subId].add(m.member_user_id)
+              }
+              if (sectionTaskIds.has(subId) && outboundTaskIds.has(subId)) {
+                if (!outboundByTask[subId]) outboundByTask[subId] = new Set()
+                outboundByTask[subId].add(m.member_user_id)
+              }
             }
           }
         }
       }
-      setInboundGroups(inbound)
-      setOutboundGroups(outbound)
+      setInboundGroups(Object.fromEntries(Object.entries(inboundByTask).map(([k, v]) => [k, Array.from(v)])))
+      setOutboundGroups(Object.fromEntries(Object.entries(outboundByTask).map(([k, v]) => [k, Array.from(v)])))
 
       // Build scoped tasks list similar to Unit Admin tasks table, but filtered to user's section
       let userSectionId: number | null = null
@@ -120,7 +189,7 @@ export default function TaskManagerDashboard() {
         const matchesSectionId = userSectionId ? String(t.section_id) === String(userSectionId) : false
         const matchesCode = userSectionCode ? String(t.sub_task_id || '').startsWith(`${userSectionCode}-`) : false
         const matchesDisplayCode = userSectionDisplay ? String(t.sub_task_id || '').startsWith(`${userSectionDisplay}-`) : false
-        const matchesResponsible = t.responsible_user_ids.some(id => sectionIds.has(id))
+        const matchesResponsible = t.responsible_user_ids.some(id => sectionEdipis.has(id))
         return matchesSectionId || matchesCode || matchesDisplayCode || matchesResponsible
       })
       const scoped = filtered.map(t => {
@@ -199,7 +268,9 @@ export default function TaskManagerDashboard() {
               <div className="space-y-6">
                 {Object.entries(inboundGroups).map(([subTaskId, members]) => {
                   const label = taskLabels[subTaskId]
-                  const title = `${label?.section_name || ''} - ${label?.description || subTaskId}`
+                  const secCode = label?.section_name || ''
+                  const secDisplay = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                  const title = `${secDisplay} - ${label?.description || subTaskId}`
                   return (
                     <div key={subTaskId} className="border border-github-border rounded-xl">
                       <div className="px-4 py-3 border-b border-github-border">
@@ -217,7 +288,7 @@ export default function TaskManagerDashboard() {
                               const m = memberMap[mid]
                               const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : mid
                               return (
-                                <tr key={mid} className="border-t border-github-border text-gray-300">
+                                <tr key={`${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
                                   <td className="p-2">{name}</td>
                                 </tr>
                               )
@@ -233,9 +304,11 @@ export default function TaskManagerDashboard() {
 
             {tab === 'outbound' && (
               <div className="space-y-6">
-                {Object.entries(outboundGroups).map(([subTaskId, entries]) => {
+                {Object.entries(outboundGroups).map(([subTaskId, members]) => {
                   const label = taskLabels[subTaskId]
-                  const title = `${label?.section_name || ''} - ${label?.description || subTaskId}`
+                  const secCode = label?.section_name || ''
+                  const secDisplay = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                  const title = `${secDisplay} - ${label?.description || subTaskId}`
                   return (
                     <div key={subTaskId} className="border border-github-border rounded-xl">
                       <div className="px-4 py-3 border-b border-github-border">
@@ -246,17 +319,15 @@ export default function TaskManagerDashboard() {
                           <thead className="text-gray-400">
                             <tr>
                               <th className="text-left p-2">Member</th>
-                              <th className="text-left p-2">Cleared At</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {entries.map(e => {
-                              const m = memberMap[e.member_user_id]
-                              const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : e.member_user_id
+                            {members.map(mid => {
+                              const m = memberMap[mid]
+                              const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : mid
                               return (
-                                <tr key={`${e.member_user_id}-${subTaskId}`} className="border-t border-github-border text-gray-300">
+                                <tr key={`${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
                                   <td className="p-2">{name}</td>
-                                  <td className="p-2">{e.cleared_at_timestamp || '—'}</td>
                                 </tr>
                               )
                             })}
