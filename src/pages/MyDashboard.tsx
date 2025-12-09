@@ -55,12 +55,12 @@ export default function MyDashboard() {
           setTaskLabels(labels)
         } catch {}
       }
-      const inboundItems = listMyItems(user.user_id, 'Inbound')
-      const outboundItems = listMyItems(user.user_id, 'Outbound')
+      const inboundItems = await listMyItems(user.user_id, 'Inbound')
+      const outboundItems = await listMyItems(user.user_id, 'Outbound')
       setMyInbound(inboundItems)
       setMyOutbound(outboundItems)
       const ruc = (user.unit_id || '').includes('-') ? (user.unit_id || '').split('-')[1] : (user.unit_id || '')
-      const unitForms = listForms(ruc)
+      const unitForms = await listForms(ruc)
       setForms(unitForms)
       const first = unitForms.filter(f => f.kind === 'Inbound')[0]
       setSelectedFormId(first ? first.id : null)
@@ -282,13 +282,13 @@ export default function MyDashboard() {
                 </div>
               </div>
               <div className="mt-6 flex gap-2 justify-end">
-                <button onClick={() => {
+                <button onClick={async () => {
                   if (!user || !selectedFormId) return
                   const form = forms.find(f => f.id === selectedFormId)
                   if (!form) return
-                  createMyItem(user.user_id, form.name, newKind, form.id)
-                  setMyInbound(listMyItems(user.user_id, 'Inbound'))
-                  setMyOutbound(listMyItems(user.user_id, 'Outbound'))
+                  await createMyItem(user.user_id, form.name, newKind, form.id)
+                  setMyInbound(await listMyItems(user.user_id, 'Inbound'))
+                  setMyOutbound(await listMyItems(user.user_id, 'Outbound'))
                   setCreateOpen(false)
                   setNewKind('Inbound')
                   const first = forms.filter(f => f.kind === 'Inbound')[0]

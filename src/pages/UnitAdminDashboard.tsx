@@ -76,7 +76,7 @@ export default function UnitAdminDashboard() {
       setSectionOptions(secs)
       const tsks = await listSubTasks(unitId)
       setTasks(tsks)
-      setForms(listForms(unitId))
+      setForms(await listForms(unitId))
       const comps = await listCompanies(unitId)
       setCompanyRows(comps)
       const ids = comps.map(c => c.company_id)
@@ -816,16 +816,16 @@ export default function UnitAdminDashboard() {
                       </div>
                       <div className="mt-6 flex gap-2 justify-end">
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             setFormsError('')
                             try {
                               if (!newFormName.trim()) throw new Error('Name is required')
                               if (editingFormId) {
-                                updateForm(unitId, editingFormId, { name: newFormName.trim(), kind: newFormKind, task_ids: newFormTaskIds, purpose: newFormPurpose })
+                                await updateForm(unitId, editingFormId, { name: newFormName.trim(), kind: newFormKind, task_ids: newFormTaskIds, purpose: newFormPurpose })
                               } else {
-                                createForm(unitId, newFormName.trim(), newFormKind, newFormTaskIds, newFormPurpose)
+                                await createForm(unitId, newFormName.trim(), newFormKind, newFormTaskIds, newFormPurpose)
                               }
-                              setForms(listForms(unitId))
+                              setForms(await listForms(unitId))
                               setCreateModalOpen(false)
                               setEditingFormId(null)
                             } catch (err: any) {
@@ -892,9 +892,9 @@ export default function UnitAdminDashboard() {
                             Edit
                           </button>
                           <button
-                            onClick={() => {
-                              deleteForm(unitId, f.id)
-                              setForms(listForms(unitId))
+                            onClick={async () => {
+                              await deleteForm(unitId, f.id)
+                              setForms(await listForms(unitId))
                             }}
                             className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
                           >

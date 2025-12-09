@@ -1,6 +1,9 @@
 import { supabase } from './supabaseClient'
 import bcrypt from 'bcryptjs'
 import { LocalUserProfile, MemberProgress } from './localDataService'
+import type { UnitForm } from '@/utils/formsStore'
+import type { MyItem } from '@/utils/myItemsStore'
+import type { MyFormSubmission } from '@/utils/myFormSubmissionsStore'
 
 export const sbGetUserByEdipi = async (edipi: string): Promise<LocalUserProfile | null> => {
   const { data, error } = await supabase
@@ -47,17 +50,6 @@ export const sbListMembers = async (): Promise<{ member_user_id: string; unit_id
 
 // ===== Forms Management =====
 
-export interface UnitForm {
-  id: number
-  unit_id: string
-  name: string
-  kind: 'Inbound' | 'Outbound'
-  task_ids: string[]
-  purpose?: string
-  created_at?: string
-  updated_at?: string
-}
-
 export const sbListForms = async (unit_id: string): Promise<UnitForm[]> => {
   const { data, error } = await supabase
     .from('unit_forms')
@@ -96,15 +88,6 @@ export const sbDeleteForm = async (id: number): Promise<void> => {
 
 // ===== My Items Management =====
 
-export interface MyItem {
-  id: number
-  user_id: string
-  name: string
-  kind: 'Inbound' | 'Outbound'
-  form_id?: number
-  created_at?: string
-}
-
 export const sbListMyItems = async (user_id: string, kind?: 'Inbound' | 'Outbound'): Promise<MyItem[]> => {
   let query = supabase
     .from('my_items')
@@ -140,18 +123,6 @@ export const sbDeleteMyItem = async (id: number): Promise<void> => {
 }
 
 // ===== Form Submissions Management =====
-
-export interface MyFormSubmission {
-  id: number
-  user_id: string
-  unit_id: string
-  form_id: number
-  form_name: string
-  kind: 'Inbound' | 'Outbound'
-  member: any // JSONB
-  tasks: any[] // JSONB
-  created_at?: string
-}
 
 export const sbListSubmissions = async (user_id: string): Promise<MyFormSubmission[]> => {
   const { data, error } = await supabase
