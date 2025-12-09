@@ -4,15 +4,18 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { canonicalize } from '@/utils/json'
 import { sha256String } from '@/utils/crypto'
-import { downloadJsonFile } from '@/utils/download'
 import '@/js/military-data.js'
 import { triggerCreateUserDispatch } from '@/services/workflowService'
+import { sbInsertUser, sbUpsertProgress } from '@/services/supabaseDataService'
 import { loadUnitStructureFromBundle } from '@/utils/unitStructure'
 
 export default function Register() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const [edipi, setEdipi] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [middleInitial, setMiddleInitial] = useState('')
+  const [lastName, setLastName] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [orgRole, setOrgRole] = useState<'Unit_Admin' | 'Section_Manager' | 'Member'>('Member')
@@ -30,11 +33,13 @@ export default function Register() {
   const [busy, setBusy] = useState(false)
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
   const [platoons, setPlatoons] = useState<{ id: string; name: string }[]>([])
+  const [unitQuery, setUnitQuery] = useState('')
+  const [unitOpen, setUnitOpen] = useState(false)
 
   const handleGenerate = async () => {
     setError('')
-    if (!edipi || !password || !unitId || !mos) {
-      setError('EDIPI, MOS, password, and unit are required')
+    if (!edipi || !password || !unitId || !mos || !firstName || !lastName) {
+      setError('EDIPI, MOS, password, unit, First and Last name are required')
       return
     }
     if (!/^\d{10}$/.test(edipi)) {
@@ -61,6 +66,10 @@ export default function Register() {
       setError('Passwords do not match')
       return
     }
+    if (middleInitial && !/^[A-Za-z]$/.test(middleInitial)) {
+      setError('Middle initial must be a single letter')
+      return
+    }
     setBusy(true)
     try {
       const userId = String(Date.now())
@@ -70,6 +79,9 @@ export default function Register() {
         user_id: userId,
         edipi,
         mos,
+        first_name: firstName,
+        middle_initial: middleInitial || undefined,
+        last_name: lastName,
         branch: branch || undefined,
         rank: rank || undefined,
         org_role: orgRole,
@@ -108,21 +120,27 @@ export default function Register() {
       try {
         const mod: any = await import('@/utils/units')
         const list = (mod.UNITS || mod.units || mod.default || mod.getAllUnits?.() || []) as any[]
-        const normalized = list.map((u: any, idx: number) => ({
-          id: (u.uic || u.id || u.unit_id || u.code || String(u)) as string,
-          name: u.unitName || u.name || u.title || String(u),
-          uic: u.uic || '',
-          ruc: u.ruc || '',
-          mcc: u.mcc || '',
-          _idx: idx
-        }))
-        const uniqueByUic = new Map<string, any>()
+        const normalized = list.map((u: any, idx: number) => {
+          const uic = u.uic || ''
+          const ruc = u.ruc || ''
+          const mcc = u.mcc || ''
+          const combo = [uic, ruc, mcc].filter(Boolean).join('-')
+          const id = combo || (u.id || u.unit_id || u.code || String(u))
+          return {
+            id: id as string,
+            name: u.unitName || u.name || u.title || String(u),
+            uic,
+            ruc,
+            mcc,
+            _idx: idx
+          }
+        })
+        const unique = new Map<string, any>()
         for (const u of normalized) {
-          const key = u.uic || u.id
-          if (!key) continue
-          if (!uniqueByUic.has(key)) uniqueByUic.set(key, u)
+          const key = `${u.uic}|${u.ruc}|${u.mcc}`
+          if (!unique.has(key)) unique.set(key, u)
         }
-        setUnits(Array.from(uniqueByUic.values()))
+        setUnits(Array.from(unique.values()))
       } catch {
         setUnits([])
       }
@@ -154,10 +172,7 @@ export default function Register() {
     loadStructure()
   }, [unitId, companyId, units])
 
-  const handleDownload = () => {
-    if (previewUser) downloadJsonFile(`user_${previewUser.user_id}.json`, previewUser)
-    if (previewProgress) downloadJsonFile(`progress_${previewProgress.member_user_id}.json`, previewProgress)
-  }
+  
 
   const handleLoginNow = () => {
     if (!previewUser) return
@@ -165,12 +180,120 @@ export default function Register() {
     navigate('/dashboard')
   }
 
+  const handleSubmit = async () => {
+    setError('')
+    if (!edipi || !password || !unitId || !mos || !firstName || !lastName) {
+      setError('EDIPI, MOS, password, unit, First and Last name are required')
+      return
+    }
+    if (!/^\d{10}$/.test(edipi)) {
+      setError('EDIPI must be 10 digits')
+      return
+    }
+    if (!/^\d{4}$/.test(mos)) {
+      setError('MOS must be 4 digits')
+      return
+    }
+    if (branch && !rank) {
+      setError('Please select a rank for the chosen branch')
+      return
+    }
+    if (companies.length > 0 && !companyId) {
+      setError('Please select a Company')
+      return
+    }
+    if (platoons.length > 0 && !platoonId) {
+      setError('Please select a Platoon')
+      return
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match')
+      return
+    }
+    if (middleInitial && !/^[A-Za-z]$/.test(middleInitial)) {
+      setError('Middle initial must be a single letter')
+      return
+    }
+    setBusy(true)
+    try {
+      const userId = String(Date.now())
+      const hashed = await bcrypt.hash(password, 12)
+      const now = new Date().toISOString()
+      const userProfile = {
+        user_id: userId,
+        edipi,
+        mos,
+        first_name: firstName,
+        middle_initial: middleInitial || undefined,
+        last_name: lastName,
+        branch: branch || undefined,
+        rank: rank || undefined,
+        org_role: orgRole,
+        unit_id: unitId,
+        company_id: companyId || undefined,
+        platoon_id: platoonId || undefined,
+        hashed_password: hashed,
+        created_at_timestamp: now,
+        updated_at_timestamp: now
+      }
+      const progress = orgRole === 'Member' ? (() => {
+        const base = {
+          member_user_id: userId,
+          unit_id: unitId,
+          official_checkin_timestamp: now,
+          current_file_sha: '',
+          progress_tasks: [] as any[]
+        }
+        return base
+      })() : null
+      if (progress) {
+        const canonical = canonicalize(progress)
+        const sha = await sha256String(canonical)
+        progress.current_file_sha = sha
+      }
+      if (import.meta.env.VITE_USE_SUPABASE === '1') {
+        await sbInsertUser(userProfile as any)
+        if (progress) await sbUpsertProgress(progress as any)
+      } else {
+        await triggerCreateUserDispatch('SemperAdmin', 'Process-Point-Data', {
+          user: userProfile,
+          progress: progress || undefined
+        })
+      }
+      login(userProfile)
+      navigate('/dashboard')
+    } catch (e: any) {
+      setError(e?.message || 'Submit failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-github-dark">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-semibold text-white mb-6">Create Account</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4 bg-github-gray bg-opacity-10 border border-github-border rounded-xl p-6">
+    <div className="min-h-screen bg-github-dark p-8">
+      <h1 className="text-2xl font-semibold text-white mb-6">Create Account</h1>
+      <div className="space-y-4 bg-github-gray bg-opacity-10 border border-github-border rounded-xl p-6 h-full">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
+                placeholder="First Name"
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+              />
+              <input
+                className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
+                placeholder="Middle Initial"
+                value={middleInitial}
+                onChange={e => setMiddleInitial(e.target.value.toUpperCase().slice(0,1))}
+                maxLength={1}
+              />
+              <input
+                className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
+                placeholder="Last Name"
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+              />
+            </div>
             <input
               className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
               placeholder="EDIPI"
@@ -184,33 +307,34 @@ export default function Register() {
               onChange={e => setMos(e.target.value)}
               maxLength={4}
             />
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Branch</label>
-              <select
-                className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
-                value={branch}
-                onChange={e => {
-                  const b = e.target.value
-                  setBranch(b)
-                  const md: any = (window as any).MilitaryData
-                  const options = md?.getRanksForBranch?.(b) || []
-                  setRankOptions(options)
-                  setRank('')
-                }}
-              >
-                <option value="">Select branch</option>
-                {((window as any).MilitaryData?.branches || []).map((br: any) => (
-                  <option key={br.value} value={br.value}>{br.label}</option>
-                ))}
-              </select>
-            </div>
-            {branch && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Branch</label>
+                <select
+                  className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
+                  value={branch}
+                  onChange={e => {
+                    const b = e.target.value
+                    setBranch(b)
+                    const md: any = (window as any).MilitaryData
+                    const options = md?.getRanksForBranch?.(b) || []
+                    setRankOptions(options)
+                    setRank('')
+                  }}
+                >
+                  <option value="">Select branch</option>
+                  {((window as any).MilitaryData?.branches || []).map((br: any) => (
+                    <option key={br.value} value={br.value}>{br.label}</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Rank</label>
                 <select
                   className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
                   value={rank}
                   onChange={e => setRank(e.target.value)}
+                  disabled={!branch}
                 >
                   <option value="">Select rank</option>
                   {rankOptions.map((r) => (
@@ -218,33 +342,60 @@ export default function Register() {
                   ))}
                 </select>
               </div>
-            )}
-            <select
-              className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
-              value={orgRole}
-              onChange={e => setOrgRole(e.target.value as any)}
-            >
-              <option value="Unit_Admin">Unit Admin</option>
-              <option value="Section_Manager">Section Manager</option>
-              <option value="Member">Member</option>
-            </select>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Unit</label>
-              <select
-                className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-github-blue"
-                value={unitId}
-                onChange={e => setUnitId(e.target.value)}
-              >
-                <option value="">Select unit</option>
-                {units.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} — {u.id}
-                    {u.uic ? ` • UIC ${u.uic}` : ''}
-                    {u.ruc ? ` • RUC ${u.ruc}` : ''}
-                    {u.mcc ? ` • MCC ${u.mcc}` : ''}
-                  </option>
-                ))}
-              </select>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Unit</label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setUnitOpen(!unitOpen)}
+                    className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white text-left focus:outline-none focus:ring-2 focus:ring-github-blue"
+                  >
+                    {(() => {
+                      const sel = units.find(u => u.id === unitId)
+                      if (!sel) return 'Select unit'
+                      const details = [sel.ruc && `RUC ${sel.ruc}`, sel.mcc && `MCC ${sel.mcc}`, sel.uic && `UIC ${sel.uic}`].filter(Boolean).join(' • ')
+                      return `${sel.name}${details ? ' — ' + details : ''}`
+                    })()}
+                  </button>
+                  {unitOpen && (
+                    <div className="absolute left-0 right-0 mt-2 bg-black border border-github-border rounded-lg z-10">
+                      <div className="p-2 border-b border-github-border">
+                        <input
+                          autoFocus
+                          className="w-full px-3 py-2 bg-black border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
+                          placeholder="Search by name/UIC/RUC/MCC/ID"
+                          value={unitQuery}
+                          onChange={e => setUnitQuery(e.target.value)}
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-auto bg-black">
+                        {units.filter(u => {
+                          const q = unitQuery.trim().toLowerCase()
+                          return (
+                            (u.name || '').toLowerCase().startsWith(q) ||
+                            (u.id || '').toLowerCase().startsWith(q) ||
+                            (u.uic || '').toLowerCase().startsWith(q) ||
+                            (u.ruc || '').toLowerCase().startsWith(q) ||
+                            (u.mcc || '').toLowerCase().startsWith(q)
+                          )
+                        }).map(u => (
+                          <button
+                            key={`dd-${u.id}`}
+                            onMouseDown={() => { setUnitId(u.id); setUnitQuery(''); setUnitOpen(false) }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-700 text-white"
+                          >
+                            <div className="text-sm">{u.name}</div>
+                            <div className="text-xs text-gray-400">{[u.ruc && `RUC ${u.ruc}`, u.mcc && `MCC ${u.mcc}`, u.uic && `UIC ${u.uic}`, u.id && `ID ${u.id}`].filter(Boolean).join(' • ')}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
             </div>
             {companies.length > 0 && (
               <div>
@@ -291,53 +442,22 @@ export default function Register() {
               onChange={e => setConfirm(e.target.value)}
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
-                onClick={handleGenerate}
+                onClick={handleSubmit}
                 disabled={busy}
-                className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"
+                className="flex-1 px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"
               >
-                {busy ? 'Generating...' : 'Generate Files'}
+                {busy ? 'Submitting...' : 'Submit'}
               </button>
               <button
-                onClick={handleLoginNow}
-                disabled={!previewUser}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg disabled:opacity-50"
+                onClick={() => navigate('/')}
+                disabled={busy}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg"
               >
-                Login Now
+                Cancel
               </button>
             </div>
-          </div>
-
-          <div className="space-y-4">
-            {(previewUser || previewProgress) && (
-              <button
-                onClick={async () => {
-                  if (!previewUser) { alert('Generate files first'); return }
-                  try {
-                    await triggerCreateUserDispatch('SemperAdmin', 'Process-Point-Data', {
-                      user: previewUser,
-                      progress: previewProgress || undefined
-                    })
-                    // Also download the files locally (silent create) for records
-                    downloadJsonFile(`user_${previewUser.user_id}.json`, previewUser)
-                    if (previewProgress) {
-                      downloadJsonFile(`progress_${previewProgress.member_user_id}.json`, previewProgress)
-                    }
-                    // Seamless: login and go to dashboard
-                    login(previewUser)
-                    navigate('/dashboard')
-                  } catch (e: any) {
-                    alert(`Submit failed: ${e?.message || 'Unknown error'}`)
-                  }
-                }}
-                className="w-full px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"
-              >
-                Submit
-              </button>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   )

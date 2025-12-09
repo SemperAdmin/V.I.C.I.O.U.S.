@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, User, RotateCcw, ExternalLink } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { githubService } from '@/services/githubService'
 import { Commit } from '@/types'
+import HeaderTools from '@/components/HeaderTools'
 
 export default function HistoryView() {
   const { owner, repo, path = '' } = useParams<{ owner: string; repo: string; path?: string }>()
@@ -116,6 +117,7 @@ export default function HistoryView() {
                 <p className="text-sm text-gray-400">{owner}/{repo}/{path}</p>
               </div>
             </div>
+            <HeaderTools />
           </div>
         </div>
       </header>

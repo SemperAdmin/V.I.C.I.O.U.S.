@@ -1,9 +1,13 @@
 import bcrypt from 'bcryptjs'
+import { sbGetUserByEdipi, sbVerifyPassword } from './supabaseDataService'
 
 export interface LocalUserProfile {
   user_id: string
   edipi: string
   mos: string
+  first_name?: string
+  middle_initial?: string
+  last_name?: string
   branch?: string
   rank?: string
   org_role: string
@@ -64,6 +68,7 @@ export const fetchJson = async <T>(path: string): Promise<T> => {
 }
 
 export const getUserByEdipi = async (edipi: string): Promise<LocalUserProfile | null> => {
+  if (import.meta.env.VITE_USE_SUPABASE === '1') return sbGetUserByEdipi(edipi)
   const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
   const entry = index.users.find(u => u.edipi === edipi)
   if (!entry) return null
@@ -71,6 +76,7 @@ export const getUserByEdipi = async (edipi: string): Promise<LocalUserProfile | 
 }
 
 export const verifyPassword = async (plain: string, hashed: string): Promise<boolean> => {
+  if (import.meta.env.VITE_USE_SUPABASE === '1') return sbVerifyPassword(plain, hashed)
   return bcrypt.compare(plain, hashed)
 }
 

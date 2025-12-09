@@ -5,6 +5,7 @@ import { Save, FileJson, ArrowLeft, RefreshCw, Eye, GitBranch } from 'lucide-rea
 import { useAuthStore } from '@/stores/authStore'
 import { githubService } from '@/services/githubService'
 import { FileItem } from '@/types'
+import HeaderTools from '@/components/HeaderTools'
 
 export default function FileEditor() {
   const { owner, repo, path = '' } = useParams<{ owner: string; repo: string; path?: string }>()
@@ -168,6 +169,7 @@ export default function FileEditor() {
                 )}
               </button>
             </div>
+            <HeaderTools />
           </div>
         </div>
       </header>

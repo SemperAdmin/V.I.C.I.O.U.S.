@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dispatch:test": "node scripts/dispatch-test.mjs",
+    "local:server": "node scripts/local-dispatch-server.mjs",
+    "local:dispatch": "node scripts/local-dispatch-test.mjs",
+    "local:write": "node scripts/write-local-files.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.4.6",
@@ -15,6 +19,7 @@
     "bcryptjs": "^2.4.3",
     "lucide-react": "^0.263.1",
     "monaco-editor": "^0.36.1",
+    "@supabase/supabase-js": "^2.43.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.1",
