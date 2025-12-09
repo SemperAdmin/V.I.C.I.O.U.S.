@@ -6,6 +6,7 @@ interface AuthState {
   isAuthenticated: boolean
   login: (user: User) => void
   logout: () => void
+  getToken: () => string | null
 }
 
 const saved = typeof window !== 'undefined' ? localStorage.getItem('user') : null
@@ -30,5 +31,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     set({ user: null, isAuthenticated: false })
     localStorage.removeItem('user')
+  },
+  getToken: () => {
+    try {
+      return localStorage.getItem('gh_token')
+    } catch {
+      return null
+    }
   },
 }))

@@ -1,0 +1,12 @@
+{
+  "user_id": "3001",
+  "edipi": "3456789012",
+  "mos": "0402",
+  "org_role": "Member",
+  "unit_id": "unit_101",
+  "company_id": "company_a",
+  "platoon_id": "platoon_1",
+  "hashed_password": "$2a$12$4aTnqPz.k99qETGjnrEtFuCmUbS/PKP5VydrpHJk.tLfklAQsSe/C",
+  "created_at_timestamp": "2025-01-01T00:00:00Z",
+  "updated_at_timestamp": "2025-01-01T00:00:00Z"
+}

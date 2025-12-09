@@ -669,7 +669,7 @@ export default function UnitAdminDashboard() {
                         <td className="p-2">{taskEditingId === t.id ? (
                           <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         ) : (t.instructions || '')}</td>
-                        <td className="p-2">{(t.responsible_user_ids || []).map(id => {
+                        <td className="p-2">{(t.responsible_user_ids || []).map((id: string) => {
                           const u = edipiMap[id]
                           const rank = u?.rank || ''
                           const name = [u?.first_name, u?.last_name].filter(Boolean).join(' ')

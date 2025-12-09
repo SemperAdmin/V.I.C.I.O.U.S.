@@ -1,0 +1,10 @@
+{
+  "member_user_id": "3001",
+  "unit_id": "unit_101",
+  "official_checkin_timestamp": "2025-01-02T10:00:00Z",
+  "current_file_sha": "sha_progress_3001_v1",
+  "progress_tasks": [
+    { "sub_task_id": "st_1", "status": "Pending" },
+    { "sub_task_id": "st_2", "status": "Pending" }
+  ]
+}

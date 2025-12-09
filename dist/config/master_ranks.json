@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "updated_at_timestamp": "2025-01-01T00:00:00Z",
+  "ranks": [
+    { "code": "E1", "title": "Private" },
+    { "code": "E2", "title": "Private Second Class" },
+    { "code": "E3", "title": "Private First Class" },
+    { "code": "E4", "title": "Specialist" }
+  ]
+}

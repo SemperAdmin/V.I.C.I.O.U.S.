@@ -241,51 +241,6 @@ export default function MyDashboard() {
                     <p className="text-gray-400 text-sm">No outbound items</p>
                   )}
                 </div>
-                <div>
-                  <h2 className="text-white text-lg mb-3">Available Outbound Forms (Unit)</h2>
-                  {forms.filter(f => f.kind === 'Outbound').length ? (
-                    <table className="min-w-full text-sm">
-                      <thead className="text-gray-400">
-                        <tr>
-                          <th className="text-left p-2">Name</th>
-                          <th className="text-left p-2">Purpose</th>
-                          <th className="text-left p-2">Tasks</th>
-                          <th className="text-left p-2">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {forms.filter(f => f.kind === 'Outbound').map(f => (
-                          <tr key={f.id} className="border-t border-github-border text-gray-300">
-                            <td className="p-2">{f.name}</td>
-                            <td className="p-2">{(() => {
-                              switch (f.purpose) {
-                                case 'Fleet_Assistance_Program': return 'Fleet Assistance Program'
-                                case 'TAD_31_plus_days': return 'Temporary Additional Duty 31+ days'
-                                case 'TAD_30_or_less': return 'Temporary Additional Duty 30 days or less'
-                                case 'PCA': return 'Permanent Change of Assignment'
-                                case 'PCS': return 'Permanent Change of Station'
-                                case 'Separation': return 'Separation'
-                                case 'Retirement': return 'Retirement'
-                                default: return ''
-                              }
-                            })()}</td>
-                            <td className="p-2">{f.task_ids.length}</td>
-                            <td className="p-2">
-                              <button
-                                onClick={() => { setNewKind('Outbound'); setSelectedFormId(f.id); setCreateOpen(true) }}
-                                className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
-                              >
-                                Select
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <p className="text-gray-400 text-sm">No outbound forms for your unit</p>
-                  )}
-                </div>
               </div>
             )}
             

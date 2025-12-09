@@ -2,9 +2,12 @@ export interface User {
   user_id: string
   edipi: string
   mos: string
+  first_name?: string
+  middle_initial?: string
+  last_name?: string
   branch?: string
   rank?: string
-  org_role: 'Unit_Admin' | 'Section_Manager' | 'Member'
+  org_role: 'Unit_Admin' | 'Section_Manager' | 'Member' | 'App_Admin'
   is_unit_admin?: boolean
   is_app_admin?: boolean
   section_role?: 'Section_Reviewer' | 'Member'

@@ -1,0 +1,24 @@
+{
+  "users": [
+    {
+      "user_id": "1001",
+      "edipi": "1234567890",
+      "path": "data/users/user_1001.json"
+    },
+    {
+      "user_id": "2001",
+      "edipi": "2345678901",
+      "path": "data/users/user_2001.json"
+    },
+    {
+      "user_id": "3001",
+      "edipi": "3456789012",
+      "path": "data/users/user_3001.json"
+    },
+    {
+      "user_id": "1765265754824",
+      "edipi": "7777777777",
+      "path": "data/users/user_1765265754824.json"
+    }
+  ]
+}

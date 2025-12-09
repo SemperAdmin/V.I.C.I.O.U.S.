@@ -1,0 +1,25 @@
+{
+  "unit_id": "unit_101",
+  "checklist_name": "Unit 101 Onboarding",
+  "sections": [
+    {
+      "unit_checklist_id": "sec_admin",
+      "section_name": "Admin Processing",
+      "prerequisite_item_id": "prereq_none",
+      "physical_location": "Admin Office",
+      "phone_number": "555-0101",
+      "sub_tasks": [
+        {
+          "sub_task_id": "st_1",
+          "description": "Verify personnel file",
+          "responsible_user_id": ["2001"]
+        },
+        {
+          "sub_task_id": "st_2",
+          "description": "Issue unit badge",
+          "responsible_user_id": ["2001"]
+        }
+      ]
+    }
+  ]
+}
