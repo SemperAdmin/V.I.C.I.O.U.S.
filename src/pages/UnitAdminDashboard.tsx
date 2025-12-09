@@ -10,6 +10,7 @@ import { UNITS } from '@/utils/units'
 import { getAssignedUnitsForRuc, setAssignedUnitsForRuc } from '@/utils/adminScopeStore'
 import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin } from '@/services/adminService'
 import { getUnitAdmins, addUnitAdmin, removeUnitAdmin } from '@/utils/unitAdminsStore'
+import { sbListUsersByRuc } from '@/services/supabaseDataService'
 
 export default function UnitAdminDashboard() {
   const { user } = useAuthStore()
@@ -76,12 +77,35 @@ export default function UnitAdminDashboard() {
       setSectionOptions(secs)
       const tsks = await listSubTasks(unitId)
       setTasks(tsks)
-      setForms(listForms(unitId))
+      setForms(await listForms(unitId))
       const comps = await listCompanies(unitId)
       setCompanyRows(comps)
       const ids = comps.map(c => c.company_id)
       setCompanies(ids)
       if (!selectedCompany && ids.length) setSelectedCompany(ids[0])
+
+      if (tsks.length === 0) {
+        const fList = await listForms(unitId)
+        const allIds = Array.from(new Set(fList.flatMap(f => f.task_ids)))
+        if (allIds.length) {
+          const sectionByCode = new Map<string, number>()
+          for (const s of secs) {
+            sectionByCode.set(s.section_name, s.id)
+            const disp = (s as any).display_name
+            if (disp) sectionByCode.set(String(disp), s.id)
+          }
+          for (const tid of allIds) {
+            const prefix = String(tid).split('-')[0]
+            const sid = sectionByCode.get(prefix) || secs[0]?.id || 0
+            if (!sid) continue
+            try {
+              await createSubTask({ unit_id: unitId, section_id: sid, sub_task_id: tid, description: String(tid), responsible_user_ids: defaultEdipis })
+            } catch {}
+          }
+          const refreshed = await listSubTasks(unitId)
+          setTasks(refreshed)
+        }
+      }
     }
     load()
   }, [unitId])
@@ -115,18 +139,42 @@ export default function UnitAdminDashboard() {
   useEffect(() => {
     if (!unitId) return
     const loadUsers = async () => {
-      const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
-      const profiles: LocalUserProfile[] = []
+      let profiles: LocalUserProfile[] = []
       const assignedUnion = new Set<string>([...assignedUnits, user?.unit_id || ''].filter(Boolean))
-      for (const entry of index.users) {
-        const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
-        const pruc = (profile.unit_id || '').includes('-') ? (profile.unit_id || '').split('-')[1] : (profile.unit_id || '')
-        if (String(pruc) === String(unitId) && (assignedUnion.size === 0 || assignedUnion.has(profile.unit_id))) profiles.push(profile)
+
+      // Try Supabase first, fallback to JSON files
+      if (import.meta.env.VITE_USE_SUPABASE === '1') {
+        try {
+          // Get all users for this RUC from Supabase
+          const allUsers = await sbListUsersByRuc(unitId)
+          // Filter by assigned units if needed
+          profiles = allUsers.filter(profile =>
+            assignedUnion.size === 0 || assignedUnion.has(profile.unit_id)
+          )
+        } catch (err) {
+          console.warn('Supabase listUsersByRuc failed, using JSON fallback:', err)
+          // Fall through to JSON loading
+        }
       }
+
+      // Fallback to JSON files if Supabase not enabled or failed
+      if (profiles.length === 0) {
+        const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
+        for (const entry of index.users) {
+          const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
+          const pruc = (profile.unit_id || '').includes('-') ? (profile.unit_id || '').split('-')[1] : (profile.unit_id || '')
+          if (String(pruc) === String(unitId) && (assignedUnion.size === 0 || assignedUnion.has(profile.unit_id))) {
+            profiles.push(profile)
+          }
+        }
+      }
+
+      // Add current user if they match the RUC
       const selfPruc = (user?.unit_id || '').includes('-') ? (user?.unit_id || '').split('-')[1] : (user?.unit_id || '')
       if (user && String(selfPruc) === String(unitId) && (assignedUnion.size === 0 || assignedUnion.has(user.unit_id!))) {
         if (!profiles.find(p => p.edipi === user.edipi)) profiles.push(user as any as LocalUserProfile)
       }
+
       const companySet = new Set<string>([...companies, ...profiles.map(p => p.company_id!).filter(Boolean)])
       const platoonSet = new Set<string>(profiles.map(p => p.platoon_id!).filter(Boolean))
       const companyList = Array.from(companySet)
@@ -546,9 +594,8 @@ export default function UnitAdminDashboard() {
                     setTasksError('')
                     const secs = await listSections(unitId)
                     setSections(secs)
-                    const filtered = selectedCompany ? secs.filter(s => (s as any).company_id === selectedCompany) : secs
-                    setSectionOptions(filtered)
-                    const defaultSectionId = filtered[0]?.id || 0
+                    setSectionOptions(secs)
+                    const defaultSectionId = secs[0]?.id || 0
                     setNewTask({ section_id: defaultSectionId, sub_task_id: '', description: '', responsible_user_ids: defaultEdipis.join(', '), location: '', instructions: '' })
                     setCreateModalOpen(true)
                   }}
@@ -813,19 +860,38 @@ export default function UnitAdminDashboard() {
                             )
                           })}
                         </div>
+                        <div className="space-y-2">
+                          <div className="text-gray-400 text-sm">Selected tasks</div>
+                          <div className="flex flex-wrap gap-2">
+                            {newFormTaskIds.map(id => (
+                              <span key={id} className="inline-flex items-center gap-2 px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                                {id}
+                                <button
+                                  onClick={() => {
+                                    const next = newFormTaskIds.filter(x => x !== id)
+                                    setNewFormTaskIds(next)
+                                  }}
+                                  className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
+                                >
+                                  Remove
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                       <div className="mt-6 flex gap-2 justify-end">
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             setFormsError('')
                             try {
                               if (!newFormName.trim()) throw new Error('Name is required')
                               if (editingFormId) {
-                                updateForm(unitId, editingFormId, { name: newFormName.trim(), kind: newFormKind, task_ids: newFormTaskIds, purpose: newFormPurpose })
+                                await updateForm(unitId, editingFormId, { name: newFormName.trim(), kind: newFormKind, task_ids: newFormTaskIds, purpose: newFormPurpose })
                               } else {
-                                createForm(unitId, newFormName.trim(), newFormKind, newFormTaskIds, newFormPurpose)
+                                await createForm(unitId, newFormName.trim(), newFormKind, newFormTaskIds, newFormPurpose)
                               }
-                              setForms(listForms(unitId))
+                              setForms(await listForms(unitId))
                               setCreateModalOpen(false)
                               setEditingFormId(null)
                             } catch (err: any) {
@@ -885,6 +951,7 @@ export default function UnitAdminDashboard() {
                               setNewFormKind(f.kind)
                               setNewFormTaskIds(f.task_ids)
                               setNewFormPurpose((f.purpose as UnitFormPurpose) || 'PCS')
+                              ;(async () => { setTasks(await listSubTasks(unitId)) })()
                               setCreateModalOpen(true)
                             }}
                             className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
@@ -892,9 +959,9 @@ export default function UnitAdminDashboard() {
                             Edit
                           </button>
                           <button
-                            onClick={() => {
-                              deleteForm(unitId, f.id)
-                              setForms(listForms(unitId))
+                            onClick={async () => {
+                              await deleteForm(unitId, f.id)
+                              setForms(await listForms(unitId))
                             }}
                             className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
                           >

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { sbGetUserByEdipi, sbVerifyPassword } from './supabaseDataService'
+import { sbGetUserByEdipi, sbVerifyPassword, sbGetProgressByMember, sbListMembers } from './supabaseDataService'
 
 export interface LocalUserProfile {
   user_id: string
@@ -84,12 +84,58 @@ export const verifyPassword = async (plain: string, hashed: string): Promise<boo
 }
 
 export const getChecklistByUnit = async (unitId: string): Promise<UnitChecklist> => {
+  if (import.meta.env.VITE_USE_SUPABASE === '1') {
+    try {
+      const { listSections, listSubTasks } = await import('./supabaseUnitConfigService')
+      const sections = await listSections(unitId)
+      const subTasks = await listSubTasks(unitId)
+
+      const bySection: Record<number, SubTaskDef[]> = {}
+      for (const st of subTasks) {
+        if (!bySection[st.section_id]) bySection[st.section_id] = []
+        bySection[st.section_id].push({
+          sub_task_id: st.sub_task_id,
+          description: st.description,
+          responsible_user_id: st.responsible_user_ids || [],
+        })
+      }
+
+      const checklist: UnitChecklist = {
+        unit_id: unitId,
+        checklist_name: 'Unit Checklist',
+        sections: sections.map(sec => ({
+          unit_checklist_id: String(sec.id),
+          section_name: sec.section_name,
+          prerequisite_item_id: sec.prerequisite_item_id || '',
+          physical_location: sec.physical_location || '',
+          phone_number: sec.phone_number || '',
+          sub_tasks: bySection[sec.id] || [],
+        })),
+      }
+      return checklist
+    } catch {
+      // Fallback to static files if Supabase fails
+    }
+  }
   const index = await fetchJson<{ units: { unit_id: string; path: string }[] }>(`/data/units/index.json`)
   const match = index.units.find(u => u.unit_id === unitId) || index.units[0]
   return await fetchJson<UnitChecklist>(`/${match.path}`)
 }
 
 export const getProgressByMember = async (memberUserId: string): Promise<MemberProgress> => {
+  if (import.meta.env.VITE_USE_SUPABASE === '1') {
+    const data = await sbGetProgressByMember(memberUserId)
+    if (data) return data
+    // Return empty progress if not found in Supabase
+    return {
+      member_user_id: memberUserId,
+      unit_id: '',
+      official_checkin_timestamp: new Date().toISOString(),
+      current_file_sha: '',
+      progress_tasks: [],
+    }
+  }
+  // Fallback to JSON files for demo mode
   try {
     return await fetchJson<MemberProgress>(`/data/members/progress_${memberUserId}.json`)
   } catch {
@@ -104,6 +150,10 @@ export const getProgressByMember = async (memberUserId: string): Promise<MemberP
 }
 
 export const listMembers = async (): Promise<{ member_user_id: string; unit_id: string }[]> => {
+  if (import.meta.env.VITE_USE_SUPABASE === '1') {
+    return await sbListMembers()
+  }
+  // Fallback to JSON files for demo mode
   const index = await fetchJson<{ members: { member_user_id: string; unit_id: string }[] }>(`/data/members/index.json`)
   return index.members
 }

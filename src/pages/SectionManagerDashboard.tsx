@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import HeaderTools from '@/components/HeaderTools'
 import { fetchJson, LocalUserProfile, UsersIndexEntry } from '@/services/localDataService'
+import { sbListUsers } from '@/services/supabaseDataService'
 import { listPendingForSectionManager, listArchivedForUser } from '@/services/localDataService'
 import { getRoleOverride } from '@/utils/localUsersStore'
 import { listSections } from '@/utils/unitStructure'
@@ -17,11 +18,25 @@ export default function SectionManagerDashboard() {
   useEffect(() => {
     if (!user) return
     const load = async () => {
-      const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
       const map: Record<string, LocalUserProfile> = {}
-      for (const entry of index.users) {
-        const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
-        map[profile.user_id] = profile
+      if (import.meta.env.VITE_USE_SUPABASE === '1') {
+        try {
+          const allUsers = await sbListUsers()
+          for (const profile of allUsers) {
+            map[profile.user_id] = profile
+          }
+        } catch {
+        }
+      }
+      if (Object.keys(map).length === 0) {
+        try {
+          const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
+          for (const entry of index.users) {
+            const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
+            map[profile.user_id] = profile
+          }
+        } catch {
+        }
       }
       setMemberMap(map)
       const pending = await listPendingForSectionManager(user.user_id, user.unit_id)

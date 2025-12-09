@@ -7,7 +7,7 @@ import { sha256String } from '@/utils/crypto'
 import '@/js/military-data.js'
 import { triggerCreateUserDispatch } from '@/services/workflowService'
 import { sbInsertUser, sbUpsertProgress } from '@/services/supabaseDataService'
-import { loadUnitStructureFromBundle } from '@/utils/unitStructure'
+import { listSections } from '@/utils/unitStructure'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -152,18 +152,16 @@ export default function Register() {
     const loadStructure = async () => {
       try {
         if (!unitId) { setCompanies([]); setPlatoons([]); return }
-        const all = await loadUnitStructureFromBundle()
         const unitObj = units.find(u => u.id === unitId)
-        let data: any = null
-        if (unitObj?.uic && all[unitObj.uic]) data = all[unitObj.uic]
-        else if (all[unitId]) data = all[unitId]
-        if (!data) { setCompanies([]); setPlatoons([]); return }
-        const comps = (data.companies || data.Companies || data.values?.companies || []) as any[]
-        const normComps = comps.map((c: any) => ({ id: c.id || c.code || c.name, name: c.name || c.title || c.id }))
+        const ruc = String(unitObj?.ruc || unitId || '')
+        const secs = await listSections(ruc)
+        const companyIds = Array.from(new Set(secs.map(s => (s as any).company_id).filter(Boolean)))
+        const normComps = companyIds.map(id => ({ id, name: id }))
         setCompanies(normComps)
-        const sel = comps.find((c: any) => (c.id || c.code || c.name) === companyId)
-        const plats = (sel?.platoons || sel?.Platoons || sel?.values?.platoons || []) as any[]
-        setPlatoons(plats.map((p: any) => ({ id: p.id || p.code || p.name, name: p.name || p.title || p.id })))
+        const selCompany = companyId || (normComps[0]?.id || '')
+        if (!companyId && normComps[0]?.id) setCompanyId(normComps[0].id)
+        const filteredSecs = selCompany ? secs.filter(s => (s as any).company_id === selCompany) : secs
+        setPlatoons(filteredSecs.map(s => ({ id: s.section_name, name: (s as any).display_name || s.section_name })))
       } catch {
         setCompanies([])
         setPlatoons([])

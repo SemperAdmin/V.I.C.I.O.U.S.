@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import HeaderTools from '@/components/HeaderTools'
 import { fetchJson, LocalUserProfile, UsersIndexEntry, getChecklistByUnit, listMembers, getProgressByMember } from '@/services/localDataService'
+import { sbListUsers } from '@/services/supabaseDataService'
 import { listSections } from '@/utils/unitStructure'
 import { listSubTasks, createSubTask, updateSubTask, deleteSubTask, UnitSubTask } from '@/utils/unitTasks'
 
@@ -32,11 +33,25 @@ export default function TaskManagerDashboard() {
     if (!user || !user.unit_id) return
     const load = async () => {
       const unitKey = (user.unit_id || '').includes('-') ? (user.unit_id as string).split('-')[1] : (user.unit_id as string)
-      const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
       const profiles: Record<string, LocalUserProfile> = {}
-      for (const entry of index.users) {
-        const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
-        profiles[profile.user_id] = profile
+      if (import.meta.env.VITE_USE_SUPABASE === '1') {
+        try {
+          const allUsers = await sbListUsers()
+          for (const profile of allUsers) {
+            profiles[profile.user_id] = profile
+          }
+        } catch {
+        }
+      }
+      if (Object.keys(profiles).length === 0) {
+        try {
+          const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
+          for (const entry of index.users) {
+            const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
+            profiles[profile.user_id] = profile
+          }
+        } catch {
+        }
       }
       setMemberMap(profiles)
 
