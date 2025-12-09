@@ -11,6 +11,9 @@ export interface LocalUserProfile {
   branch?: string
   rank?: string
   org_role: string
+  is_unit_admin?: boolean
+  is_app_admin?: boolean
+  section_role?: 'Section_Reviewer' | 'Member'
   unit_id: string
   company_id?: string
   platoon_id?: string
@@ -81,11 +84,23 @@ export const verifyPassword = async (plain: string, hashed: string): Promise<boo
 }
 
 export const getChecklistByUnit = async (unitId: string): Promise<UnitChecklist> => {
-  return fetchJson<UnitChecklist>(`/data/units/${unitId}/checklist.json`)
+  const index = await fetchJson<{ units: { unit_id: string; path: string }[] }>(`/data/units/index.json`)
+  const match = index.units.find(u => u.unit_id === unitId) || index.units[0]
+  return await fetchJson<UnitChecklist>(`/${match.path}`)
 }
 
 export const getProgressByMember = async (memberUserId: string): Promise<MemberProgress> => {
-  return fetchJson<MemberProgress>(`/data/members/progress_${memberUserId}.json`)
+  try {
+    return await fetchJson<MemberProgress>(`/data/members/progress_${memberUserId}.json`)
+  } catch {
+    return {
+      member_user_id: memberUserId,
+      unit_id: '',
+      official_checkin_timestamp: new Date().toISOString(),
+      current_file_sha: '',
+      progress_tasks: [],
+    }
+  }
 }
 
 export const listMembers = async (): Promise<{ member_user_id: string; unit_id: string }[]> => {

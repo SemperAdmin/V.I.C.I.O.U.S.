@@ -5,6 +5,9 @@ export interface User {
   branch?: string
   rank?: string
   org_role: 'Unit_Admin' | 'Section_Manager' | 'Member'
+  is_unit_admin?: boolean
+  is_app_admin?: boolean
+  section_role?: 'Section_Reviewer' | 'Member'
   unit_id: string
   company_id?: string
   platoon_id?: string

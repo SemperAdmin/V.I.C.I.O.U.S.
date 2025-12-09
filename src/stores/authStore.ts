@@ -8,9 +8,19 @@ interface AuthState {
   logout: () => void
 }
 
+const saved = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+let initialUser: User | null = null
+let initialAuthenticated = false
+try {
+  if (saved) {
+    initialUser = JSON.parse(saved)
+    initialAuthenticated = !!initialUser
+  }
+} catch {}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  isAuthenticated: false,
+  user: initialUser,
+  isAuthenticated: initialAuthenticated,
   
   login: (user: User) => {
     set({ user, isAuthenticated: true })

@@ -31,7 +31,7 @@ export default function LandingPage() {
         return
       }
       login(profile as any)
-      navigate('/dashboard')
+      navigate('/my-dashboard')
     } catch {
       setError('Login failed')
     } finally {

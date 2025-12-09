@@ -1,0 +1,10 @@
+{
+  "unit_id": "02301",
+  "companies": [
+    { "id": "H", "name": "H", "platoons": [] }
+  ],
+  "sections": [
+    { "id": "1765269430351", "section_name": "HHS1", "display_name": "S-1", "company_id": "H" },
+    { "id": "1765269842275", "section_name": "HHS3", "display_name": "S-3", "company_id": "H" }
+  ]
+}

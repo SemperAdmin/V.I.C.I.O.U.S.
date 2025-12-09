@@ -9,6 +9,7 @@ import '@/js/military-data.js'
  
 import { useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
+import { getRoleOverride, setUserRoleOverride } from '@/utils/localUsersStore'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -22,6 +23,9 @@ export default function Settings() {
   const [unitId, setUnitId] = useState(user?.unit_id || '')
   const [companyId, setCompanyId] = useState(user?.company_id || '')
   const [platoonId, setPlatoonId] = useState(user?.platoon_id || '')
+  const [role, setRole] = useState<'Unit_Admin' | 'Section_Manager' | 'Member'>(
+    (getRoleOverride(user?.edipi || '')?.org_role as any) || (user?.org_role as any) || 'Member'
+  )
   const [companyOptions, setCompanyOptions] = useState<Array<{ id: string; name: string }>>([])
   const [sectionOptions, setSectionOptions] = useState<Array<{ id: string; name: string }>>([])
   const [newPassword, setNewPassword] = useState('')
@@ -176,6 +180,18 @@ export default function Settings() {
                       <label className="block text-sm font-medium text-gray-300 mb-1">MOS</label>
                       <input value={mos} onChange={e => setMos(e.target.value)} className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white" />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Role (local override)</label>
+                      <select
+                        value={role}
+                        onChange={e => setRole(e.target.value as any)}
+                        className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white"
+                      >
+                        <option value="Unit_Admin">Unit_Admin</option>
+                        <option value="Section_Manager">Section_Manager</option>
+                        <option value="Member">Member</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
@@ -225,6 +241,7 @@ export default function Settings() {
                           platoon_id: platoonId || undefined,
                         }
                         login(updated as any)
+                        if (user?.edipi) setUserRoleOverride(user.edipi, role)
                         alert('Profile updated')
                       }}
                       className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"

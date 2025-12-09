@@ -43,16 +43,27 @@ const ensureUnit = (store: Record<string, UnitStructureData>, unit_id: string): 
 }
 
 export const listCompanies = async (unit_id: string): Promise<UnitCompany[]> => {
+  const fromFile = await loadUnitStructureFromFiles(unit_id)
   const store = loadStore()
   const data = ensureUnit(store, unit_id)
-  return data.companies
+  const fileCompanies: UnitCompany[] = Array.isArray(fromFile?.companies)
+    ? fromFile.companies.map((c: any, i: number) => ({
+        id: i + 1,
+        unit_id,
+        company_id: c.id || c.code || c.name,
+        display_name: c.name || c.title || c.id || undefined,
+      }))
+    : []
+  const all = [...fileCompanies, ...data.companies]
+  const dedup = Array.from(new Map(all.map(c => [c.company_id, c])).values())
+  return dedup
 }
 
 export const createCompany = async (unit_id: string, company_id: string, display_name?: string): Promise<void> => {
   const store = loadStore()
   const data = ensureUnit(store, unit_id)
   if (data.companies.some(c => c.company_id === company_id)) {
-    throw new Error('Company already exists')
+    return
   }
   const id = Date.now()
   data.companies.push({ id, unit_id, company_id, display_name })
@@ -76,9 +87,22 @@ export const deleteCompany = async (unit_company_id: number): Promise<void> => {
 }
 
 export const listSections = async (unit_id: string): Promise<UnitSection[]> => {
+  const fromFile = await loadUnitStructureFromFiles(unit_id)
   const store = loadStore()
   const data = ensureUnit(store, unit_id)
-  return data.sections
+  const fileSections: UnitSection[] = Array.isArray(fromFile?.sections)
+    ? fromFile.sections.map((s: any) => ({
+        id: Number(s.id) || Date.now(),
+        unit_id,
+        section_name: s.section_name,
+        display_name: s.display_name,
+        company_id: s.company_id,
+      }))
+    : []
+  const all = [...fileSections, ...data.sections]
+  const key = (s: UnitSection) => `${s.company_id || ''}::${s.section_name}`
+  const dedup = Array.from(new Map(all.map(s => [key(s), s])).values())
+  return dedup
 }
 
 export const createSection = async (unit_id: string, section_name: string, extra: Partial<UnitSection> = {}): Promise<void> => {
@@ -136,3 +160,24 @@ export const loadUnitStructureFromBundle = async (): Promise<Record<string, any>
   }
   return bundle
 }
+
+export const loadUnitStructureFromFiles = async (unit_id: string): Promise<any | null> => {
+  const ruc = unit_id && unit_id.includes('-') ? unit_id.split('-')[1] : unit_id
+  // Prefer RUC-level file to avoid 404s when unit-specific files are absent
+  if (ruc) {
+    try {
+      const rucPath = `/data/unit-structure/${encodeURIComponent(ruc)}.json`
+      const rucData = await fetchJson<any>(rucPath)
+      if (rucData) return rucData
+    } catch {}
+  }
+  // Fallback to unit-specific file
+  try {
+    const unitPath = `/data/unit-structure/${encodeURIComponent(unit_id)}.json`
+    const unitData = await fetchJson<any>(unitPath)
+    return unitData || null
+  } catch {
+    return null
+  }
+}
+import { fetchJson } from '@/services/localDataService'

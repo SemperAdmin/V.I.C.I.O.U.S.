@@ -7,6 +7,7 @@ export type UnitSubTask = {
   responsible_user_ids: string[]
   location?: string
   instructions?: string
+  kind?: 'Inbound' | 'Outbound'
 }
 
 type UnitTasksData = {

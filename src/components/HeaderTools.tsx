@@ -1,7 +1,8 @@
-import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown } from 'lucide-react'
+import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useEffect, useState } from 'react'
+import { getRoleOverride } from '@/utils/localUsersStore'
 import { listSections } from '@/utils/unitStructure'
 
 export default function HeaderTools() {
@@ -42,16 +43,32 @@ export default function HeaderTools() {
         {open && (
           <div className="absolute right-0 mt-2 w-48 bg-black border border-github-border rounded-lg shadow-lg z-50">
             <div className="py-2">
+              <button onMouseDown={() => { setOpen(false); navigate('/my-dashboard') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
+                <UserCheck className="w-5 h-5 mr-2" />
+                My Dashboard
+              </button>
               {(user?.edipi === '1402008233' || user?.org_role === 'App_Admin') && (
                 <button onMouseDown={() => { setOpen(false); navigate('/admin') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <Shield className="w-5 h-5 mr-2" />
                   App Admin
                 </button>
               )}
-              {user?.org_role === 'Unit_Admin' && (
+              {((getRoleOverride(user?.edipi || '')?.org_role) === 'Unit_Admin' || user?.org_role === 'Unit_Admin') && (
                 <button onMouseDown={() => { setOpen(false); navigate('/unit-admin') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <ListChecks className="w-5 h-5 mr-2" />
                   Unit Admin
+                </button>
+              )}
+              {((getRoleOverride(user?.edipi || '')?.org_role) === 'Section_Manager' || user?.org_role === 'Section_Manager') && (
+                <button onMouseDown={() => { setOpen(false); navigate('/section-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
+                  <ListChecks className="w-5 h-5 mr-2" />
+                  Section Manager
+                </button>
+              )}
+              {((getRoleOverride(user?.edipi || '')?.org_role) === 'Section_Manager' || user?.org_role === 'Section_Manager') && (
+                <button onMouseDown={() => { setOpen(false); navigate('/task-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
+                  <ListChecks className="w-5 h-5 mr-2" />
+                  Task Manager
                 </button>
               )}
               <button onMouseDown={() => { setOpen(false); navigate('/settings') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">

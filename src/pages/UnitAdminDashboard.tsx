@@ -1,19 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { listSubTasks, createSubTask, deleteSubTask, updateSubTask } from '@/utils/unitTasks'
+import { listForms, createForm, deleteForm, updateForm, UnitForm, UnitFormPurpose } from '@/utils/formsStore'
 import { listSections, createSection, deleteSection, listCompanies, createCompany, deleteCompany, updateSection, UnitSection, UnitCompany } from '@/utils/unitStructure'
 import HeaderTools from '@/components/HeaderTools'
 import { fetchJson, LocalUserProfile, UsersIndexEntry } from '@/services/localDataService'
+import { getRoleOverride, setUserRoleOverride } from '@/utils/localUsersStore'
+import { UNITS } from '@/utils/units'
+import { getAssignedUnitsForRuc, setAssignedUnitsForRuc } from '@/utils/adminScopeStore'
+import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin } from '@/services/adminService'
+import { getUnitAdmins, addUnitAdmin, removeUnitAdmin } from '@/utils/unitAdminsStore'
 
 export default function UnitAdminDashboard() {
   const { user } = useAuthStore()
-  const [tab, setTab] = useState<'structure' | 'tasks' | 'members'>('structure')
+  const [tab, setTab] = useState<'structure' | 'tasks' | 'members' | 'forms' | 'assign'>('structure')
   const [sections, setSections] = useState<UnitSection[]>([])
   const [tasks, setTasks] = useState<any[]>([])
+  const [forms, setForms] = useState<UnitForm[]>([])
   const [newSectionName, setNewSectionName] = useState('')
   const [newTask, setNewTask] = useState({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', instructions: '' })
-  const unitId = user?.unit_id || ''
-  const rucDisplay = unitId.includes('-') ? unitId.split('-')[1] : unitId
+  const initialRuc = (user?.unit_id || '').includes('-') ? (user?.unit_id || '').split('-')[1] : (user?.unit_id || '')
+  const [managedRuc, setManagedRuc] = useState(initialRuc)
+  const unitId = managedRuc
+  const rucDisplay = managedRuc
   const [companies, setCompanies] = useState<string[]>([])
   const [companyRows, setCompanyRows] = useState<UnitCompany[]>([])
   const [newCompanyId, setNewCompanyId] = useState('')
@@ -26,18 +35,40 @@ export default function UnitAdminDashboard() {
   const [editDisplay, setEditDisplay] = useState('')
   const [edipiMap, setEdipiMap] = useState<Record<string, LocalUserProfile>>({})
   const [tasksError, setTasksError] = useState('')
+  const [formsError, setFormsError] = useState('')
   const [taskEditingId, setTaskEditingId] = useState<number | null>(null)
   const [taskEditDescription, setTaskEditDescription] = useState('')
   const [taskEditLocation, setTaskEditLocation] = useState('')
   const [taskEditInstructions, setTaskEditInstructions] = useState('')
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [newFormName, setNewFormName] = useState('')
+  const [newFormKind, setNewFormKind] = useState<'Inbound' | 'Outbound'>('Inbound')
+  const [newFormTaskIds, setNewFormTaskIds] = useState<string[]>([])
+  const [editingFormId, setEditingFormId] = useState<number | null>(null)
+  const [newFormPurpose, setNewFormPurpose] = useState<UnitFormPurpose>('PCS')
   const [platoons, setPlatoons] = useState<string[]>([])
   const [selectedCompany, setSelectedCompany] = useState<string | undefined>(user?.company_id)
   const [selectedPlatoon, setSelectedPlatoon] = useState<string | undefined>(user?.platoon_id)
   const [defaultEdipis, setDefaultEdipis] = useState<string[]>([])
   const [companiesError, setCompaniesError] = useState<string>('')
+  const [rucOptions, setRucOptions] = useState<Array<{ id: string; name: string }>>([])
+  const [unitsForRuc, setUnitsForRuc] = useState<Array<{ id: string; name: string; uic?: string; ruc?: string; mcc?: string }>>([])
+  const [assignedUnits, setAssignedUnits] = useState<string[]>([])
+  const [assignTab, setAssignTab] = useState<'assigned' | 'unassigned'>('assigned')
+  const [addAdminForUnit, setAddAdminForUnit] = useState<string | null>(null)
+  const [addAdminSelectedEdipi, setAddAdminSelectedEdipi] = useState<string>('')
+  const [globalAdmins, setGlobalAdmins] = useState<Array<{ unit_key: string; unit_name: string; admin_user_id: string; ruc?: string }>>([])
+  const [pendingRoles, setPendingRoles] = useState<Record<string, 'Section_Manager' | 'Member'>>({})
 
   useEffect(() => {
+    const items = UNITS.filter(u => String(u.ruc) === managedRuc)
+      .map(u => ({ id: `${u.uic}-${u.ruc}-${u.mcc}`, name: u.unitName, uic: u.uic, ruc: u.ruc, mcc: u.mcc }))
+    setUnitsForRuc(items)
+    const preset = getAssignedUnitsForRuc(user?.edipi || '', managedRuc)
+    const own = (user?.unit_id || '')
+    const next = Array.from(new Set([...preset, own].filter(Boolean)))
+    setAssignedUnits(next)
+    setAssignedUnitsForRuc(user?.edipi || '', managedRuc, next)
     if (!unitId) return
     const load = async () => {
       const secs = await listSections(unitId)
@@ -45,6 +76,7 @@ export default function UnitAdminDashboard() {
       setSectionOptions(secs)
       const tsks = await listSubTasks(unitId)
       setTasks(tsks)
+      setForms(listForms(unitId))
       const comps = await listCompanies(unitId)
       setCompanyRows(comps)
       const ids = comps.map(c => c.company_id)
@@ -53,6 +85,27 @@ export default function UnitAdminDashboard() {
     }
     load()
   }, [unitId])
+
+  useEffect(() => {
+    const rucs = Array.from(new Set(UNITS.map(u => u.ruc).filter(Boolean)))
+    setRucOptions(rucs.map(r => ({ id: String(r), name: `RUC ${r}` })))
+    const initial = UNITS.filter(u => String(u.ruc) === managedRuc)
+      .map(u => ({ id: `${u.uic}-${u.ruc}-${u.mcc}`, name: u.unitName, uic: u.uic, ruc: u.ruc, mcc: u.mcc }))
+    setUnitsForRuc(initial)
+    const preset = getAssignedUnitsForRuc(user?.edipi || '', managedRuc)
+    const own = (user?.unit_id || '')
+    const next = Array.from(new Set([...preset, own].filter(Boolean)))
+    setAssignedUnits(next)
+    setAssignedUnitsForRuc(user?.edipi || '', managedRuc, next)
+    ;(async () => {
+      try {
+        const admins = await sbListUnitAdmins()
+        setGlobalAdmins(admins)
+      } catch {
+        setGlobalAdmins([])
+      }
+    })()
+  }, [])
 
   useEffect(() => {
     const filtered = selectedCompany ? sections.filter(s => (s as any).company_id === selectedCompany) : sections
@@ -64,9 +117,15 @@ export default function UnitAdminDashboard() {
     const loadUsers = async () => {
       const index = await fetchJson<{ users: UsersIndexEntry[] }>(`/data/users/users_index.json`)
       const profiles: LocalUserProfile[] = []
+      const assignedUnion = new Set<string>([...assignedUnits, user?.unit_id || ''].filter(Boolean))
       for (const entry of index.users) {
         const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
-        if (profile.unit_id === unitId) profiles.push(profile)
+        const pruc = (profile.unit_id || '').includes('-') ? (profile.unit_id || '').split('-')[1] : (profile.unit_id || '')
+        if (String(pruc) === String(unitId) && (assignedUnion.size === 0 || assignedUnion.has(profile.unit_id))) profiles.push(profile)
+      }
+      const selfPruc = (user?.unit_id || '').includes('-') ? (user?.unit_id || '').split('-')[1] : (user?.unit_id || '')
+      if (user && String(selfPruc) === String(unitId) && (assignedUnion.size === 0 || assignedUnion.has(user.unit_id!))) {
+        if (!profiles.find(p => p.edipi === user.edipi)) profiles.push(user as any as LocalUserProfile)
       }
       const companySet = new Set<string>([...companies, ...profiles.map(p => p.company_id!).filter(Boolean)])
       const platoonSet = new Set<string>(profiles.map(p => p.platoon_id!).filter(Boolean))
@@ -83,9 +142,11 @@ export default function UnitAdminDashboard() {
       setEdipiMap(Object.fromEntries(profiles.map(p => [p.edipi, p])))
     }
     loadUsers()
-  }, [unitId, selectedCompany, selectedPlatoon])
+  }, [unitId, selectedCompany, selectedPlatoon, assignedUnits])
 
-  if (!user || user.org_role !== 'Unit_Admin') {
+  const overrideRole = getRoleOverride(user?.edipi || '')?.org_role
+  const hasUnitAdmin = !!(user?.is_app_admin || user?.is_unit_admin || overrideRole === 'Unit_Admin' || user?.org_role === 'Unit_Admin')
+  if (!user || !hasUnitAdmin) {
     return (
       <div className="min-h-screen bg-github-dark flex items-center justify-center">
         <p className="text-gray-400">Access denied</p>
@@ -107,10 +168,16 @@ export default function UnitAdminDashboard() {
         <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl">
           <div className="flex border-b border-github-border">
             <button
-              onClick={() => setTab('structure')}
-              className={`px-4 py-3 text-sm ${tab === 'structure' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              onClick={() => setTab('members')}
+              className={`px-4 py-3 text-sm ${tab === 'members' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
-              Unit Structure
+              Assigned Members
+            </button>
+            <button
+              onClick={() => setTab('forms')}
+              className={`px-4 py-3 text-sm ${tab === 'forms' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+            >
+              Forms
             </button>
             <button
               onClick={() => setTab('tasks')}
@@ -119,14 +186,192 @@ export default function UnitAdminDashboard() {
               Tasks
             </button>
             <button
-              onClick={() => setTab('members')}
-              className={`px-4 py-3 text-sm ${tab === 'members' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              onClick={() => setTab('assign')}
+              className={`px-4 py-3 text-sm ${tab === 'assign' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
-              Assigned Members
+              Unit Management
+            </button>
+            <button
+              onClick={() => setTab('structure')}
+              className={`px-4 py-3 text-sm ${tab === 'structure' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+            >
+              Unit Structure
             </button>
           </div>
           
           <div className="p-6">
+            {tab === 'assign' && (
+              <div className="space-y-4">
+                <div className="text-gray-300">Assign units under RUC {rucDisplay} to manage</div>
+                <div className="flex border-b border-github-border">
+                  <button
+                    onClick={() => setAssignTab('assigned')}
+                    className={`px-4 py-2 text-sm ${assignTab === 'assigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+                  >
+                    Assigned Units
+                  </button>
+                  <button
+                    onClick={() => setAssignTab('unassigned')}
+                    className={`px-4 py-2 text-sm ${assignTab === 'unassigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+                  >
+                    Unassigned Units
+                  </button>
+                </div>
+                <table className="min-w-full text-sm">
+                  <thead className="text-gray-400">
+                    <tr>
+                      <th className="text-left p-2">Unit</th>
+                      <th className="text-left p-2">UIC</th>
+                      <th className="text-left p-2">RUC</th>
+                      <th className="text-left p-2">MCC</th>
+                      <th className="text-left p-2">Unit Admin</th>
+                      <th className="text-left p-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const assignedUnion = Array.from(new Set([
+                        ...assignedUnits,
+                        ...globalAdmins.map(a => a.unit_key),
+                      ]))
+                      const list = assignTab === 'assigned'
+                        ? unitsForRuc.filter(u => assignedUnion.includes(u.id))
+                        : unitsForRuc.filter(u => !assignedUnion.includes(u.id) && String(u.ruc) === String(managedRuc))
+                      return list
+                    })().map(u => (
+                      <tr key={u.id} className="border-t border-github-border text-gray-300">
+                        <td className="p-2">
+                          <div className="text-white">{u.name}</div>
+                          <div className="text-gray-300 text-sm">{[user?.rank, [user?.first_name, user?.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ')}</div>
+                        </td>
+                        <td className="p-2">{u.uic}</td>
+                        <td className="p-2">{u.ruc}</td>
+                        <td className="p-2">{u.mcc}</td>
+                        <td className="p-2">
+                          {assignTab === 'assigned' ? (() => {
+                            const ga = globalAdmins.find(a => a.unit_key === u.id)
+                            const ed = ga?.admin_user_id || (getUnitAdmins(u.id)[0] || user?.edipi || '')
+                            if (!ed) return 'None'
+                            const p = edipiMap[ed]
+                            const nm = [p?.first_name, p?.last_name].filter(Boolean).join(' ')
+                            const disp = [p?.rank, nm].filter(Boolean).join(' ')
+                            return disp || ed
+                          })() : 'None'}
+                        </td>
+                        <td className="p-2">
+                          {assignTab === 'assigned' ? (
+                            <>
+                              {addAdminForUnit === u.id ? (
+                                <>
+                                  <div className="mb-2">
+                                    <div className="text-xs text-gray-400 mb-1">Current admins</div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {getUnitAdmins(u.id).map(ed => {
+                                        const p = edipiMap[ed]
+                                        const nm = [p?.first_name, p?.last_name].filter(Boolean).join(' ')
+                                        const disp = [p?.rank, nm].filter(Boolean).join(' ')
+                                        return (
+                                          <span key={ed} className="inline-flex items-center gap-2 px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                                            {disp || ed}
+                                            <button
+                                              onClick={() => {
+                                                (async () => {
+                                                  const ga = globalAdmins.find(a => a.unit_key === u.id)
+                                                  if (ga) {
+                                                    await sbRemoveUnitAdmin(u.id)
+                                                    const admins = await sbListUnitAdmins()
+                                                    setGlobalAdmins(admins)
+                                                  } else {
+                                                    removeUnitAdmin(u.id, ed)
+                                                  }
+                                                })()
+                                              }}
+                                              className="px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
+                                            >
+                                              Remove
+                                            </button>
+                                          </span>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                  <select
+                                    value={addAdminSelectedEdipi}
+                                    onChange={e => setAddAdminSelectedEdipi(e.target.value)}
+                                    className="px-3 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white mr-2"
+                                  >
+                                    <option value="">Select member</option>
+                                    {Object.values(edipiMap).map(p => (
+                                      <option key={p.edipi} value={p.edipi}>
+                                        {[p.rank, [p.first_name, p.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ')}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => {
+                                      if (!addAdminSelectedEdipi) return
+                                  (async () => {
+                                    try {
+                                      await sbUpsertUnitAdmin(u.id, u.name, addAdminSelectedEdipi)
+                                      const admins = await sbListUnitAdmins()
+                                      setGlobalAdmins(admins)
+                                    } catch {
+                                      addUnitAdmin(u.id, addAdminSelectedEdipi)
+                                    }
+                                  })()
+                                  setAddAdminForUnit(null)
+                                  setAddAdminSelectedEdipi('')
+                                }}
+                                className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded mr-2"
+                              >
+                                Add
+                              </button>
+                                  <button
+                                    onClick={() => {
+                                      setAddAdminForUnit(null)
+                                      setAddAdminSelectedEdipi('')
+                                    }}
+                                    className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                                  >
+                                    Done
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => setAddAdminForUnit(u.id)}
+                                  className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded mr-2"
+                                >
+                                  Manage
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  const next = Array.from(new Set([...assignedUnits, u.id]))
+                                  setAssignedUnits(next)
+                                  setAssignedUnitsForRuc(user?.edipi || '', managedRuc, next)
+                                }}
+                                className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded mr-2"
+                              >
+                                Assign
+                              </button>
+                              <button
+                                onClick={() => setAddAdminForUnit(u.id)}
+                                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
+                              >
+                                Manage
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {tab === 'structure' && (
               <div className="space-y-6">
                 <div className="space-y-3">
@@ -150,7 +395,7 @@ export default function UnitAdminDashboard() {
                         <input
                           value={newCompanyId}
                           onChange={e => setNewCompanyId(e.target.value)}
-                          placeholder="Company id"
+                          placeholder="Company"
                           className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         />
                       </td>
@@ -495,37 +740,234 @@ export default function UnitAdminDashboard() {
                 
               </div>
             )}
+            {tab === 'forms' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div className="text-gray-300">Create inbound/outbound requirements from unit tasks</div>
+                  <button
+                    onClick={() => {
+                      setFormsError('')
+                      setEditingFormId(null)
+                      setNewFormName('')
+                      setNewFormKind('Inbound')
+                      setNewFormTaskIds([])
+                      setNewFormPurpose('PCS')
+                      setCreateModalOpen(true)
+                    }}
+                    className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                  >
+                    Create Form
+                  </button>
+                </div>
+
+                {createModalOpen && (
+                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-6">
+                      <h3 className="text-white text-lg mb-4">{editingFormId ? 'Edit Form' : 'New Form'}</h3>
+                      <div className="grid grid-cols-1 gap-3">
+                        <input
+                          value={newFormName}
+                          onChange={e => setNewFormName(e.target.value)}
+                          placeholder="Form name"
+                          className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                        />
+                        <select
+                          value={newFormKind}
+                          onChange={e => setNewFormKind(e.target.value as any)}
+                          className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                        >
+                          <option value="Inbound">Inbound</option>
+                          <option value="Outbound">Outbound</option>
+                        </select>
+                        <select
+                          value={newFormPurpose}
+                          onChange={e => setNewFormPurpose(e.target.value as UnitFormPurpose)}
+                          className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                        >
+                          <option value="Fleet_Assistance_Program">Fleet Assistance Program</option>
+                          <option value="TAD_31_plus_days">Temporary Additional Duty 31+ days</option>
+                          <option value="TAD_30_or_less">Temporary Additional Duty 30 days or less</option>
+                          <option value="PCA">Permanent Change of Assignment</option>
+                          <option value="PCS">Permanent Change of Station</option>
+                          <option value="Separation">Separation</option>
+                          <option value="Retirement">Retirement</option>
+                        </select>
+                        <div className="max-h-40 overflow-auto space-y-2">
+                          {tasks.map(t => {
+                            const sec = sections.find(s => s.id === t.section_id)
+                            const secLabel = (sec as any)?.display_name || sec?.section_name || ''
+                            return (
+                              <label key={t.id} className="flex items-center gap-2 text-gray-300">
+                                <input
+                                  type="checkbox"
+                                  checked={newFormTaskIds.includes(t.sub_task_id)}
+                                  onChange={e => {
+                                    const id = t.sub_task_id
+                                    const next = new Set(newFormTaskIds)
+                                    if (e.target.checked) next.add(id); else next.delete(id)
+                                    setNewFormTaskIds(Array.from(next))
+                                  }}
+                                />
+                                <span>{secLabel} - {t.description}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div className="mt-6 flex gap-2 justify-end">
+                        <button
+                          onClick={() => {
+                            setFormsError('')
+                            try {
+                              if (!newFormName.trim()) throw new Error('Name is required')
+                              if (editingFormId) {
+                                updateForm(unitId, editingFormId, { name: newFormName.trim(), kind: newFormKind, task_ids: newFormTaskIds, purpose: newFormPurpose })
+                              } else {
+                                createForm(unitId, newFormName.trim(), newFormKind, newFormTaskIds, newFormPurpose)
+                              }
+                              setForms(listForms(unitId))
+                              setCreateModalOpen(false)
+                              setEditingFormId(null)
+                            } catch (err: any) {
+                              const msg = err?.message || String(err)
+                              setFormsError(msg || 'Failed to save form')
+                            }
+                          }}
+                          className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => { setCreateModalOpen(false); setEditingFormId(null) }}
+                          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <table className="min-w-full text-sm">
+                  <thead className="text-gray-400">
+                    <tr>
+                      <th className="text-left p-2">Name</th>
+                      <th className="text-left p-2">Type</th>
+                      <th className="text-left p-2">Purpose</th>
+                      <th className="text-left p-2">Tasks</th>
+                      <th className="text-left p-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forms.map(f => (
+                      <tr key={f.id} className="border-t border-github-border text-gray-300">
+                        <td className="p-2">{f.name}</td>
+                        <td className="p-2">{f.kind}</td>
+                        <td className="p-2">{(() => {
+                          switch (f.purpose) {
+                            case 'Fleet_Assistance_Program': return 'Fleet Assistance Program'
+                            case 'TAD_31_plus_days': return 'Temporary Additional Duty 31+ days'
+                            case 'TAD_30_or_less': return 'Temporary Additional Duty 30 days or less'
+                            case 'PCA': return 'Permanent Change of Assignment'
+                            case 'PCS': return 'Permanent Change of Station'
+                            case 'Separation': return 'Separation'
+                            case 'Retirement': return 'Retirement'
+                            default: return ''
+                          }
+                        })()}</td>
+                        <td className="p-2">{f.task_ids.length}</td>
+                        <td className="p-2 flex gap-2">
+                          <button
+                            onClick={() => {
+                              setFormsError('')
+                              setEditingFormId(f.id)
+                              setNewFormName(f.name)
+                              setNewFormKind(f.kind)
+                              setNewFormTaskIds(f.task_ids)
+                              setNewFormPurpose((f.purpose as UnitFormPurpose) || 'PCS')
+                              setCreateModalOpen(true)
+                            }}
+                            className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              deleteForm(unitId, f.id)
+                              setForms(listForms(unitId))
+                            }}
+                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {formsError && (
+                  <div className="text-red-400 text-sm">{formsError}</div>
+                )}
+              </div>
+            )}
             {tab === 'members' && (
               <div className="space-y-6">
                 <table className="min-w-full text-sm">
                   <thead className="text-gray-400">
                     <tr>
-                      <th className="text-left p-2">EDIPI</th>
-                      <th className="text-left p-2">Name</th>
+                      <th className="text-left p-2">Member</th>
+                      <th className="text-left p-2">Company</th>
+                      <th className="text-left p-2">Section</th>
                       <th className="text-left p-2">Role</th>
                       <th className="text-left p-2">Update</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.values(edipiMap).filter(p => p.unit_id === unitId).map(p => {
+                    {Object.values(edipiMap).map(p => {
                       const override = getRoleOverride(p.edipi)
                       const role = override?.org_role || p.org_role || 'Member'
                       const name = [p.first_name, p.last_name].filter(Boolean).join(' ')
+                      const company = p.company_id || ''
+                      const sectionLabel = (() => {
+                        const byId = sections.find(s => String(s.id) === String(p.platoon_id))
+                        if (byId) return (byId as any).display_name || byId.section_name
+                        const byCode = sections.find(s => s.section_name === p.platoon_id)
+                        return (byCode as any)?.display_name || byCode?.section_name || ''
+                      })()
                       return (
                         <tr key={p.edipi} className="border-t border-github-border text-gray-300">
-                          <td className="p-2">{p.edipi}</td>
-                          <td className="p-2">{name}</td>
+                          <td className="p-2">{[p.rank, name].filter(Boolean).join(' ')}</td>
+                          <td className="p-2">{company}</td>
+                          <td className="p-2">{sectionLabel}</td>
                           <td className="p-2">{role}</td>
                           <td className="p-2">
-                            <select
-                              defaultValue={role}
-                              onChange={e => setUserRoleOverride(p.edipi, e.target.value as any)}
-                              className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
-                            >
-                              <option value="Unit_Admin">Unit Admin</option>
-                              <option value="Section_Manager">Section Manager</option>
-                              <option value="Member">Member</option>
-                            </select>
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={pendingRoles[p.edipi] ?? role}
+                                onChange={e => setPendingRoles(prev => ({ ...prev, [p.edipi]: e.target.value as any }))}
+                                className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                              >
+                                <option value="Section_Manager">Section Manager</option>
+                                <option value="Member">Member</option>
+                              </select>
+                              <button
+                                onClick={() => {
+                                  const next = (pendingRoles[p.edipi] ?? role) as any
+                                  setUserRoleOverride(p.edipi, next)
+                                  setPendingRoles(prev => ({ ...prev, [p.edipi]: next }))
+                                }}
+                                disabled={!pendingRoles[p.edipi] || pendingRoles[p.edipi] === role}
+                                className="px-3 py-2 bg-github-blue hover:bg-blue-600 disabled:bg-gray-600 text-white rounded"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setPendingRoles(prev => { const { [p.edipi]: _, ...rest } = prev; return rest })}
+                                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
