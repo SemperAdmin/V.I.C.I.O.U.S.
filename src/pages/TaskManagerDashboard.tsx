@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import HeaderTools from '@/components/HeaderTools'
+import { googleMapsLink } from '@/utils/maps'
 import { fetchJson, LocalUserProfile, UsersIndexEntry, getChecklistByUnit, listMembers, getProgressByMember } from '@/services/localDataService'
 import { sbListUsers } from '@/services/supabaseDataService'
 import { listSections } from '@/utils/unitStructure'
@@ -28,6 +29,7 @@ export default function TaskManagerDashboard() {
   const [taskEditingId, setTaskEditingId] = useState<number | null>(null)
   const [taskEditDescription, setTaskEditDescription] = useState('')
   const [taskEditLocation, setTaskEditLocation] = useState('')
+  const [taskEditLocationUrl, setTaskEditLocationUrl] = useState('')
   const [taskEditInstructions, setTaskEditInstructions] = useState('')
   const [taskEditCompletionKind, setTaskEditCompletionKind] = useState<'Text' | 'Date' | 'Options' | ''>('')
   const [taskEditCompletionLabel, setTaskEditCompletionLabel] = useState('')
@@ -38,6 +40,7 @@ export default function TaskManagerDashboard() {
   const [createOpen, setCreateOpen] = useState(false)
   const [newDescription, setNewDescription] = useState('')
   const [newLocation, setNewLocation] = useState('')
+  const [newLocationUrl, setNewLocationUrl] = useState('')
   const [newInstructions, setNewInstructions] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -510,8 +513,13 @@ export default function TaskManagerDashboard() {
                           <input value={taskEditDescription} onChange={e => setTaskEditDescription(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         ) : (t.description)}</td>
                         <td className="p-2">{taskEditingId === t.id ? (
-                          <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
-                        ) : (t.location || '')}</td>
+                          <div className="grid grid-cols-2 gap-2 items-center">
+                            <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} placeholder="Location" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            <input value={taskEditLocationUrl} onChange={e => setTaskEditLocationUrl(e.target.value)} placeholder="Map URL" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                          </div>
+                        ) : ((t as any).map_url || t.location ? (
+                          <a href={((t as any).map_url || googleMapsLink(t.location || ''))} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{t.location || 'Map'}</a>
+                        ) : '')}</td>
                         <td className="p-2">{taskEditingId === t.id ? (
                           <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         ) : (t.instructions || '')}</td>
@@ -536,10 +544,11 @@ export default function TaskManagerDashboard() {
                           {taskEditingId === t.id ? (
                             <>
                               <button onClick={async () => {
-                                await updateSubTask(t.id, { description: taskEditDescription.trim(), location: taskEditLocation.trim() || undefined, instructions: taskEditInstructions.trim() || undefined, completion_kind: taskEditCompletionKind || undefined, completion_label: taskEditCompletionLabel.trim() || undefined, completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined })
+                                await updateSubTask(t.id, { description: taskEditDescription.trim(), location: taskEditLocation.trim() || undefined, map_url: taskEditLocationUrl.trim() || undefined, instructions: taskEditInstructions.trim() || undefined, completion_kind: taskEditCompletionKind || undefined, completion_label: taskEditCompletionLabel.trim() || undefined, completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined })
                                 setTaskEditingId(null)
                                 setTaskEditDescription('')
                                 setTaskEditLocation('')
+                                setTaskEditLocationUrl('')
                                 setTaskEditInstructions('')
                                 setTaskEditCompletionKind('')
                                 setTaskEditCompletionLabel('')
@@ -548,11 +557,11 @@ export default function TaskManagerDashboard() {
                                 const refreshed = await listSubTasks(unitKey)
                                 setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId)))
                               }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Save</button>
-                              <button onClick={() => { setTaskEditingId(null); setTaskEditDescription(''); setTaskEditLocation(''); setTaskEditInstructions('') }} className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
+                              <button onClick={() => { setTaskEditingId(null); setTaskEditDescription(''); setTaskEditLocation(''); setTaskEditLocationUrl(''); setTaskEditInstructions('') }} className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
                             </>
                           ) : (
                             <>
-                              <button onClick={() => { setTaskEditingId(t.id); setTaskEditDescription(t.description || ''); setTaskEditLocation(t.location || ''); setTaskEditInstructions(t.instructions || ''); setTaskEditCompletionKind(t.completion_kind || ''); setTaskEditCompletionLabel(t.completion_label || ''); setTaskEditCompletionOptions((t.completion_options || []).join(', ')) }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Edit</button>
+                              <button onClick={() => { setTaskEditingId(t.id); setTaskEditDescription(t.description || ''); setTaskEditLocation(t.location || ''); setTaskEditLocationUrl((t as any).map_url || ''); setTaskEditInstructions(t.instructions || ''); setTaskEditCompletionKind(t.completion_kind || ''); setTaskEditCompletionLabel(t.completion_label || ''); setTaskEditCompletionOptions((t.completion_options || []).join(', ')) }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Edit</button>
                               <button onClick={async () => { await deleteSubTask(t.id); const unitKey = (user!.unit_id || '').includes('-') ? (user!.unit_id as string).split('-')[1] : (user!.unit_id as string); const refreshed = await listSubTasks(unitKey); setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId))) }} className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded">Remove</button>
                             </>
                           )}
@@ -568,7 +577,10 @@ export default function TaskManagerDashboard() {
                       <h3 className="text-white text-lg mb-4">Create Task</h3>
                       <div className="grid grid-cols-1 gap-3">
                         <input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Description" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
-                        <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        <div className="grid grid-cols-2 gap-2 items-center">
+                          <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                          <input value={newLocationUrl} onChange={e => setNewLocationUrl(e.target.value)} placeholder="Map URL" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        </div>
                         <textarea value={newInstructions} onChange={e => setNewInstructions(e.target.value)} placeholder="Special instructions" rows={4} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
                           <option value="">Completion type</option>
@@ -592,12 +604,13 @@ export default function TaskManagerDashboard() {
                             const nextNum = inSection.length + 1
                             const prefix = sectionPrefix || 'TASK'
                             const subId = `${prefix}-${String(nextNum).padStart(2, '0')}`
-                            await createSubTask({ unit_id: unitKey, section_id: mySectionId!, sub_task_id: subId, description: newDescription.trim(), responsible_user_ids: defaultResponsible, location: newLocation.trim() || undefined, instructions: newInstructions.trim() || undefined, completion_kind: taskEditCompletionKind || undefined, completion_label: taskEditCompletionLabel.trim() || undefined, completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined })
+                            await createSubTask({ unit_id: unitKey, section_id: mySectionId!, sub_task_id: subId, description: newDescription.trim(), responsible_user_ids: defaultResponsible, location: newLocation.trim() || undefined, map_url: newLocationUrl.trim() || undefined, instructions: newInstructions.trim() || undefined, completion_kind: taskEditCompletionKind || undefined, completion_label: taskEditCompletionLabel.trim() || undefined, completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined })
                             const refreshed = await listSubTasks(unitKey)
                             setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId)))
                             setCreateOpen(false)
                             setNewDescription('')
                             setNewLocation('')
+                            setNewLocationUrl('')
                             setNewInstructions('')
                             setTaskEditCompletionKind('')
                             setTaskEditCompletionLabel('')

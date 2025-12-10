@@ -4,6 +4,7 @@ import { listSubTasks, createSubTask, deleteSubTask, updateSubTask } from '@/uti
 import { listForms, createForm, deleteForm, updateForm, UnitForm, UnitFormPurpose } from '@/utils/formsStore'
 import { listSections, createSection, deleteSection, listCompanies, createCompany, deleteCompany, updateSection, UnitSection, UnitCompany } from '@/utils/unitStructure'
 import HeaderTools from '@/components/HeaderTools'
+import { googleMapsLink } from '@/utils/maps'
 import BrandMark from '@/components/BrandMark'
 import { fetchJson, LocalUserProfile, UsersIndexEntry } from '@/services/localDataService'
 import { getRoleOverride, setUserRoleOverride } from '@/utils/localUsersStore'
@@ -41,6 +42,7 @@ export default function UnitAdminDashboard() {
   const [taskEditingId, setTaskEditingId] = useState<number | null>(null)
   const [taskEditDescription, setTaskEditDescription] = useState('')
   const [taskEditLocation, setTaskEditLocation] = useState('')
+  const [taskEditLocationUrl, setTaskEditLocationUrl] = useState('')
   const [taskEditInstructions, setTaskEditInstructions] = useState('')
   const [taskEditCompletionKind, setTaskEditCompletionKind] = useState<'Text' | 'Date' | 'Options' | ''>('')
   const [taskEditCompletionLabel, setTaskEditCompletionLabel] = useState('')
@@ -647,7 +649,7 @@ export default function UnitAdminDashboard() {
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         >
                           <option value={0}>Select section</option>
-                          {sectionOptions.map(s => (
+                          {sections.map(s => (
                             <option key={s.id} value={s.id}>{(s as any).display_name || s.section_name}</option>
                           ))}
                         </select>
@@ -769,8 +771,13 @@ export default function UnitAdminDashboard() {
                           <input value={taskEditDescription} onChange={e => setTaskEditDescription(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         ) : (t.description)}</td>
                         <td className="p-2">{taskEditingId === t.id ? (
-                          <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
-                        ) : (t.location || '')}</td>
+                          <div className="grid grid-cols-2 gap-2 items-center">
+                            <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} placeholder="Location" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            <input value={taskEditLocationUrl} onChange={e => setTaskEditLocationUrl(e.target.value)} placeholder="Map URL" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                          </div>
+                        ) : ((t as any).map_url || t.location ? (
+                          <a href={((t as any).map_url || googleMapsLink(t.location || ''))} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{t.location || 'Map'}</a>
+                        ) : '')}</td>
                         <td className="p-2">{taskEditingId === t.id ? (
                           <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         ) : (t.instructions || '')}</td>
@@ -805,6 +812,7 @@ export default function UnitAdminDashboard() {
                                   await updateSubTask(t.id, {
                                     description: taskEditDescription.trim(),
                                     location: taskEditLocation.trim() || undefined,
+                                    map_url: taskEditLocationUrl.trim() || undefined,
                                     instructions: taskEditInstructions.trim() || undefined,
                                     completion_kind: taskEditCompletionKind || undefined,
                                     completion_label: taskEditCompletionLabel.trim() || undefined,
@@ -814,6 +822,7 @@ export default function UnitAdminDashboard() {
                                   setTaskEditingId(null)
                                   setTaskEditDescription('')
                                   setTaskEditLocation('')
+                                  setTaskEditLocationUrl('')
                                   setTaskEditInstructions('')
                                   setTaskEditCompletionKind('')
                                   setTaskEditCompletionLabel('')
@@ -828,6 +837,7 @@ export default function UnitAdminDashboard() {
                                   setTaskEditingId(null)
                                   setTaskEditDescription('')
                                   setTaskEditLocation('')
+                                  setTaskEditLocationUrl('')
                                   setTaskEditInstructions('')
                                 }}
                                 className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
@@ -842,6 +852,7 @@ export default function UnitAdminDashboard() {
                                   setTaskEditingId(t.id)
                                   setTaskEditDescription(t.description || '')
                                   setTaskEditLocation(t.location || '')
+                                  setTaskEditLocationUrl((t as any).map_url || '')
                                   setTaskEditInstructions(t.instructions || '')
                                   setTaskEditCompletionKind(t.completion_kind || '')
                                   setTaskEditCompletionLabel(t.completion_label || '')
@@ -1129,7 +1140,7 @@ export default function UnitAdminDashboard() {
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         >
                           <option value="">Select section</option>
-                          {(editMemberCompany ? sections.filter(s => s.company_id === editMemberCompany) : sections).map(s => (
+                          {sections.map(s => (
                             <option key={s.id} value={String(s.id)}>{(s as any).display_name || s.section_name}</option>
                           ))}
                         </select>
