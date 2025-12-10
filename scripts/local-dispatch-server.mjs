@@ -49,19 +49,26 @@ const server = http.createServer(async (req, res) => {
         const payload = JSON.parse(body || '{}')
         const eventType = payload.event_type
         const client = payload.client_payload || {}
-        if (eventType !== 'create_user') throw new Error('Unsupported event_type')
-        const user = client.user
-        const progress = client.progress
-        if (!user || !user.user_id) throw new Error('Missing user payload')
-        // Write user
-        const userPath = path.posix.join(publicDir, 'data', 'users', `user_${user.user_id}.json`)
-        writeJsonFile(userPath, user)
-        updateIndexUsers(user)
-        // Write progress
-        if (progress && progress.member_user_id) {
+        if (eventType === 'create_user') {
+          const user = client.user
+          const progress = client.progress
+          if (!user || !user.user_id) throw new Error('Missing user payload')
+          const userPath = path.posix.join(publicDir, 'data', 'users', `user_${user.user_id}.json`)
+          writeJsonFile(userPath, user)
+          updateIndexUsers(user)
+          if (progress && progress.member_user_id) {
+            const progPath = path.posix.join(publicDir, 'data', 'members', `progress_${progress.member_user_id}.json`)
+            writeJsonFile(progPath, progress)
+            updateIndexMembers(progress)
+          }
+        } else if (eventType === 'update_progress') {
+          const progress = client.progress
+          if (!progress || !progress.member_user_id) throw new Error('Missing progress payload')
           const progPath = path.posix.join(publicDir, 'data', 'members', `progress_${progress.member_user_id}.json`)
           writeJsonFile(progPath, progress)
           updateIndexMembers(progress)
+        } else {
+          throw new Error('Unsupported event_type')
         }
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ ok: true }))

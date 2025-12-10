@@ -16,6 +16,7 @@ import { listMyItems, createMyItem, MyItem } from '@/utils/myItemsStore'
 import { createSubmission, listSubmissions, MyFormSubmission } from '@/utils/myFormSubmissionsStore'
 import { sbUpsertProgress } from '@/services/supabaseDataService'
 import { supabase } from '@/services/supabaseClient'
+import { triggerUpdateProgressDispatch } from '@/services/workflowService'
 import { canonicalize } from '@/utils/json'
 import { sha256String } from '@/utils/crypto'
 
@@ -933,41 +934,36 @@ export default function MyDashboard() {
                     const extra: any = { task_ids: ids, completed_count: completed, total_count: total, status }
                     await createSubmission({ ...(rest as any), ...extra })
 
-                    // Update member progress in Supabase when VITE_USE_SUPABASE is enabled
-                    if (import.meta.env.VITE_USE_SUPABASE === '1') {
-                      try {
-                        // Get existing progress or create new
-                        const existingProgress = await getProgressByMember(user.user_id)
+                    const existingProgress = await getProgressByMember(user.user_id)
+                    const existingTaskIds = new Set(existingProgress.progress_tasks.map(t => t.sub_task_id))
+                    const newTasks = submissionPreview.tasks
+                      .filter(t => !existingTaskIds.has(t.sub_task_id))
+                      .map(t => ({
+                        sub_task_id: t.sub_task_id,
+                        status: t.status,
+                        cleared_by_user_id: undefined,
+                        cleared_at_timestamp: undefined
+                      }))
 
-                        // Merge new tasks with existing ones (avoid duplicates)
-                        const existingTaskIds = new Set(existingProgress.progress_tasks.map(t => t.sub_task_id))
-                        const newTasks = submissionPreview.tasks
-                          .filter(t => !existingTaskIds.has(t.sub_task_id))
-                          .map(t => ({
-                            sub_task_id: t.sub_task_id,
-                            status: t.status,
-                            cleared_by_user_id: undefined,
-                            cleared_at_timestamp: undefined
-                          }))
-
-                        const updatedProgress = {
-                          member_user_id: user.user_id,
-                          unit_id: user.unit_id,
-                          official_checkin_timestamp: existingProgress.official_checkin_timestamp || new Date().toISOString(),
-                          progress_tasks: [...existingProgress.progress_tasks, ...newTasks],
-                          current_file_sha: ''
-                        }
-
-                        // Calculate SHA for integrity
-                        const canonical = canonicalize(updatedProgress)
-                        const sha = await sha256String(canonical)
-                        updatedProgress.current_file_sha = sha
-
-                        await sbUpsertProgress(updatedProgress)
-                      } catch (err) {
-                        console.error('Failed to update member progress:', err)
-                      }
+                    const updatedProgress = {
+                      member_user_id: user.user_id,
+                      unit_id: user.unit_id,
+                      official_checkin_timestamp: existingProgress.official_checkin_timestamp || new Date().toISOString(),
+                      progress_tasks: [...existingProgress.progress_tasks, ...newTasks],
+                      current_file_sha: ''
                     }
+
+                    const canonical = canonicalize(updatedProgress)
+                    const sha = await sha256String(canonical)
+                    updatedProgress.current_file_sha = sha
+
+                    if (import.meta.env.VITE_USE_SUPABASE === '1') {
+                      try { await sbUpsertProgress(updatedProgress) } catch (err) { console.error('Failed to update member progress:', err) }
+                    } else {
+                      try { await triggerUpdateProgressDispatch({ progress: updatedProgress }) } catch (err) { console.error('Local dispatch update failed:', err) }
+                    }
+
+                    try { window.dispatchEvent(new CustomEvent('progress-updated', { detail: { member_user_id: user.user_id } })) } catch {}
 
                     setSubmissionPreview(null)
                     setPreviewPendingBySection({})

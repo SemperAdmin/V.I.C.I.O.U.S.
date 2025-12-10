@@ -39,3 +39,15 @@ export const triggerCreateUserDispatch = async (
     }
   )
 }
+
+export const triggerUpdateProgressDispatch = async (
+  payload: { progress: MemberProgress }
+): Promise<void> => {
+  if (import.meta.env.VITE_USE_LOCAL_DISPATCH === '1') {
+    await axios.post(`http://127.0.0.1:5500/dispatch`, {
+      event_type: 'update_progress',
+      client_payload: payload
+    })
+    return
+  }
+}

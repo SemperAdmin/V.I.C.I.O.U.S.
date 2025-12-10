@@ -48,6 +48,11 @@ select option, select optgroup {
   background-color: #f3e9d6 !important;
 }
 
+/* Global row hover highlight across tables */
+table tbody tr:hover {
+  background-color: #AD1B3F;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
