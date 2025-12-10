@@ -4,8 +4,7 @@ const isSupabaseConfigured = () => {
   const use = import.meta.env.VITE_USE_SUPABASE === '1'
   const url = import.meta.env.VITE_SUPABASE_URL as string
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
-  const isHttpsContext = typeof window !== 'undefined' ? window.location.protocol === 'https:' : true
-  return !!use && isHttpsContext && typeof url === 'string' && url.startsWith('https://') && typeof key === 'string' && key.length > 10
+  return !!use && typeof url === 'string' && url.startsWith('https://') && typeof key === 'string' && key.length > 10
 }
 
 export const sbListUnitAdmins = async (): Promise<Array<{ unit_key: string; unit_name: string; admin_user_id: string; ruc?: string }>> => {
@@ -46,20 +45,21 @@ export const sbSetAdminAssignments = async (admin_edipi: string, ruc: string, un
   }
 }
 
-export const sbUpsertUnitAdmin = async (unit_key: string, unit_name: string, admin_user_id: string): Promise<void> => {
+export const sbUpsertUnitAdmin = async (unit_key: string, unit_name: string, admin_user_id: string, ruc?: string): Promise<void> => {
   if (!isSupabaseConfigured()) return
   const { error } = await supabase
     .from('unit_admins')
-    .upsert({ unit_key, unit_name, admin_user_id }, { onConflict: 'unit_key' })
+    .upsert({ unit_key, unit_name, admin_user_id, ruc }, { onConflict: 'unit_key,admin_user_id' })
   if (error) throw error
 }
 
-export const sbRemoveUnitAdmin = async (unit_key: string): Promise<void> => {
+export const sbRemoveUnitAdmin = async (unit_key: string, admin_user_id: string): Promise<void> => {
   if (!isSupabaseConfigured()) return
   const { error } = await supabase
     .from('unit_admins')
     .delete()
     .eq('unit_key', unit_key)
+    .eq('admin_user_id', admin_user_id)
   if (error) throw error
 }
 

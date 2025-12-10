@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import HeaderTools from '@/components/HeaderTools'
 import { fetchJson, LocalUserProfile, UsersIndexEntry } from '@/services/localDataService'
-import { sbListUsers } from '@/services/supabaseDataService'
+import { sbListUsers, sbListSubmissionsByUnit } from '@/services/supabaseDataService'
 import { listPendingForSectionManager, listArchivedForUser } from '@/services/localDataService'
 import { getRoleOverride } from '@/utils/localUsersStore'
 import { listSections } from '@/utils/unitStructure'
 
 export default function SectionManagerDashboard() {
   const { user } = useAuthStore()
-  const [tab, setTab] = useState<'inbound' | 'outbound'>('inbound')
+  const [tab, setTab] = useState<'inbound' | 'outbound' | 'forms'>('inbound')
   const [inbound, setInbound] = useState<{ member_user_id: string; sub_task_id: string }[]>([])
   const [outbound, setOutbound] = useState<{ member_user_id: string; sub_task_id: string; cleared_at_timestamp?: string }[]>([])
   const [memberMap, setMemberMap] = useState<Record<string, LocalUserProfile>>({})
   const [sectionLabel, setSectionLabel] = useState('')
+  const [sectionForms, setSectionForms] = useState<Array<{ user_id: string; edipi?: string; name: string; kind: string; created_at?: string }>>([])
 
   useEffect(() => {
     if (!user) return
@@ -43,6 +44,30 @@ export default function SectionManagerDashboard() {
       setInbound(pending)
       const archived = await listArchivedForUser(user.user_id, user.unit_id)
       setOutbound(archived)
+      try {
+        if (import.meta.env.VITE_USE_SUPABASE === '1') {
+          const submissions = await sbListSubmissionsByUnit(user.unit_id)
+          const mySectionKey = String(user.platoon_id || '')
+          const forms = submissions
+            .filter(s => {
+              const p = map[s.user_id]
+              const secKey = p?.platoon_id ? String(p.platoon_id) : String((s as any).member?.platoon_id || '')
+              return secKey && secKey === mySectionKey
+            })
+            .map(s => ({
+              user_id: s.user_id,
+              edipi: map[s.user_id]?.edipi,
+              name: s.form_name,
+              kind: s.kind,
+              created_at: s.created_at,
+            }))
+          setSectionForms(forms)
+        } else {
+          setSectionForms([])
+        }
+      } catch {
+        setSectionForms([])
+      }
       const secs = await listSections(user.unit_id)
       const sec = secs.find(s => String(s.id) === String(user.platoon_id))
       setSectionLabel((sec as any)?.display_name || sec?.section_name || 'Section')
@@ -85,6 +110,12 @@ export default function SectionManagerDashboard() {
             >
               Outbound
             </button>
+            <button
+              onClick={() => setTab('forms')}
+              className={`px-4 py-3 text-sm ${tab === 'forms' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+            >
+              Forms
+            </button>
           </div>
           <div className="p-6">
             {tab === 'inbound' && (
@@ -126,6 +157,68 @@ export default function SectionManagerDashboard() {
                               Reject
                             </button>
                           </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {tab === 'forms' && (
+              <div className="space-y-6">
+                <div className="text-gray-300">Forms submitted by members in your section</div>
+                <table className="min-w-full text-sm">
+                  <thead className="text-gray-400">
+                    <tr>
+                      <th className="text-left p-2">Member</th>
+                      <th className="text-left p-2">EDIPI</th>
+                      <th className="text-left p-2">Form</th>
+                      <th className="text-left p-2">Type</th>
+                      <th className="text-left p-2">Created At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sectionForms.map(row => {
+                      const m = memberMap[row.user_id]
+                      const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
+                      return (
+                        <tr key={`${row.user_id}-${row.name}-${row.created_at}`} className="border-t border-github-border text-gray-300">
+                          <td className="p-2">{[m?.rank, name].filter(Boolean).join(' ')}</td>
+                          <td className="p-2">{row.edipi || ''}</td>
+                          <td className="p-2">{row.name}</td>
+                          <td className="p-2">{row.kind}</td>
+                          <td className="p-2">{row.created_at || ''}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {tab === 'forms' && (
+              <div className="space-y-6">
+                <div className="text-gray-300">Forms submitted by members in your section</div>
+                <table className="min-w-full text-sm">
+                  <thead className="text-gray-400">
+                    <tr>
+                      <th className="text-left p-2">Member</th>
+                      <th className="text-left p-2">EDIPI</th>
+                      <th className="text-left p-2">Form</th>
+                      <th className="text-left p-2">Type</th>
+                      <th className="text-left p-2">Created At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sectionForms.map(row => {
+                      const m = memberMap[row.user_id]
+                      const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
+                      return (
+                        <tr key={`${row.user_id}-${row.name}-${row.created_at}`} className="border-t border-github-border text-gray-300">
+                          <td className="p-2">{[m?.rank, name].filter(Boolean).join(' ')}</td>
+                          <td className="p-2">{row.edipi || ''}</td>
+                          <td className="p-2">{row.name}</td>
+                          <td className="p-2">{row.kind}</td>
+                          <td className="p-2">{row.created_at || ''}</td>
                         </tr>
                       )
                     })}

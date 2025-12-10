@@ -10,7 +10,7 @@ import { UNITS } from '@/utils/units'
 import { getAssignedUnitsForRuc, setAssignedUnitsForRuc } from '@/utils/adminScopeStore'
 import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin } from '@/services/adminService'
 import { getUnitAdmins, addUnitAdmin, removeUnitAdmin } from '@/utils/unitAdminsStore'
-import { sbListUsersByRuc } from '@/services/supabaseDataService'
+import { sbListUsersByRuc, sbUpdateUser } from '@/services/supabaseDataService'
 
 export default function UnitAdminDashboard() {
   const { user } = useAuthStore()
@@ -41,6 +41,9 @@ export default function UnitAdminDashboard() {
   const [taskEditDescription, setTaskEditDescription] = useState('')
   const [taskEditLocation, setTaskEditLocation] = useState('')
   const [taskEditInstructions, setTaskEditInstructions] = useState('')
+  const [taskEditCompletionKind, setTaskEditCompletionKind] = useState<'Text' | 'Date' | 'Options' | ''>('')
+  const [taskEditCompletionLabel, setTaskEditCompletionLabel] = useState('')
+  const [taskEditCompletionOptions, setTaskEditCompletionOptions] = useState('')
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [newFormName, setNewFormName] = useState('')
   const [newFormKind, setNewFormKind] = useState<'Inbound' | 'Outbound'>('Inbound')
@@ -60,6 +63,8 @@ export default function UnitAdminDashboard() {
   const [addAdminSelectedEdipi, setAddAdminSelectedEdipi] = useState<string>('')
   const [globalAdmins, setGlobalAdmins] = useState<Array<{ unit_key: string; unit_name: string; admin_user_id: string; ruc?: string }>>([])
   const [pendingRoles, setPendingRoles] = useState<Record<string, 'Section_Manager' | 'Member'>>({})
+  const [pendingCompanyForEdipi, setPendingCompanyForEdipi] = useState<Record<string, string>>({})
+  const [pendingSectionForEdipi, setPendingSectionForEdipi] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const items = UNITS.filter(u => String(u.ruc) === managedRuc)
@@ -326,7 +331,7 @@ export default function UnitAdminDashboard() {
                                                 (async () => {
                                                   const ga = globalAdmins.find(a => a.unit_key === u.id)
                                                   if (ga) {
-                                                    await sbRemoveUnitAdmin(u.id)
+                                                    await sbRemoveUnitAdmin(u.id, ed)
                                                     const admins = await sbListUnitAdmins()
                                                     setGlobalAdmins(admins)
                                                   } else {
@@ -644,6 +649,30 @@ export default function UnitAdminDashboard() {
                           rows={4}
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         />
+                        <select
+                          value={taskEditCompletionKind}
+                          onChange={e => setTaskEditCompletionKind(e.target.value as any)}
+                          className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                        >
+                          <option value="">Completion type</option>
+                          <option value="Text">Text</option>
+                          <option value="Date">Date</option>
+                          <option value="Options">Options</option>
+                        </select>
+                        <input
+                          value={taskEditCompletionLabel}
+                          onChange={e => setTaskEditCompletionLabel(e.target.value)}
+                          placeholder="Completion label"
+                          className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                        />
+                        {taskEditCompletionKind === 'Options' && (
+                          <input
+                            value={taskEditCompletionOptions}
+                            onChange={e => setTaskEditCompletionOptions(e.target.value)}
+                            placeholder="Completion options (comma-separated)"
+                            className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                          />
+                        )}
                       </div>
                       <div className="mt-6 flex gap-2 justify-end">
                         <button
@@ -655,23 +684,29 @@ export default function UnitAdminDashboard() {
                             const prefix = section?.section_name || 'TASK'
                             const next = (tasks.filter(t => t.section_id === newTask.section_id).length + 1)
                             const sub_task_id = `${prefix}-${String(next).padStart(2, '0')}`
-                            try {
-                              await createSubTask({
-                                unit_id: unitId,
-                                section_id: newTask.section_id,
-                                sub_task_id,
-                                description: newTask.description.trim(),
-                                responsible_user_ids: ids,
-                                location: newTask.location.trim() || undefined,
-                                instructions: newTask.instructions.trim() || undefined
-                              })
-                              setTasks(await listSubTasks(unitId))
-                              setCreateModalOpen(false)
-                              setNewTask({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', instructions: '' })
-                            } catch (err: any) {
-                              const msg = err?.message || String(err)
-                              setTasksError(msg || 'Failed to add sub task')
-                            }
+                          try {
+                            await createSubTask({
+                              unit_id: unitId,
+                              section_id: newTask.section_id,
+                              sub_task_id,
+                              description: newTask.description.trim(),
+                              responsible_user_ids: ids,
+                              location: newTask.location.trim() || undefined,
+                              instructions: newTask.instructions.trim() || undefined,
+                              completion_kind: taskEditCompletionKind || undefined,
+                              completion_label: taskEditCompletionLabel.trim() || undefined,
+                              completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                            })
+                            setTasks(await listSubTasks(unitId))
+                            setCreateModalOpen(false)
+                            setNewTask({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', instructions: '' })
+                            setTaskEditCompletionKind('')
+                            setTaskEditCompletionLabel('')
+                            setTaskEditCompletionOptions('')
+                          } catch (err: any) {
+                            const msg = err?.message || String(err)
+                            setTasksError(msg || 'Failed to add sub task')
+                          }
                           }}
                           className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
                         >
@@ -697,6 +732,7 @@ export default function UnitAdminDashboard() {
                       <th className="text-left p-2">Location</th>
                       <th className="text-left p-2">Instructions</th>
                       <th className="text-left p-2">Responsible</th>
+                      <th className="text-left p-2">Completion</th>
                       <th className="text-left p-2">Actions</th>
                     </tr>
                   </thead>
@@ -723,6 +759,22 @@ export default function UnitAdminDashboard() {
                           const disp = [rank, name].filter(Boolean).join(' ')
                           return disp || id
                         }).join(', ')}</td>
+                        <td className="p-2">{taskEditingId === t.id ? (
+                          <div className="grid grid-cols-1 gap-2">
+                            <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                              <option value="">Completion type</option>
+                              <option value="Text">Text</option>
+                              <option value="Date">Date</option>
+                              <option value="Options">Options</option>
+                            </select>
+                            <input value={taskEditCompletionLabel} onChange={e => setTaskEditCompletionLabel(e.target.value)} placeholder="Label" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            {taskEditCompletionKind === 'Options' && (
+                              <input value={taskEditCompletionOptions} onChange={e => setTaskEditCompletionOptions(e.target.value)} placeholder="Options (comma-separated)" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            )}
+                          </div>
+                        ) : (
+                          [t.completion_kind, t.completion_label, (t.completion_options || []).join('/')].filter(Boolean).join(' • ')
+                        )}</td>
                         <td className="p-2 flex gap-2">
                           {taskEditingId === t.id ? (
                             <>
@@ -732,12 +784,18 @@ export default function UnitAdminDashboard() {
                                     description: taskEditDescription.trim(),
                                     location: taskEditLocation.trim() || undefined,
                                     instructions: taskEditInstructions.trim() || undefined,
+                                    completion_kind: taskEditCompletionKind || undefined,
+                                    completion_label: taskEditCompletionLabel.trim() || undefined,
+                                    completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined,
                                   })
                                   setTasks(await listSubTasks(unitId))
                                   setTaskEditingId(null)
                                   setTaskEditDescription('')
                                   setTaskEditLocation('')
                                   setTaskEditInstructions('')
+                                  setTaskEditCompletionKind('')
+                                  setTaskEditCompletionLabel('')
+                                  setTaskEditCompletionOptions('')
                                 }}
                                 className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
                               >
@@ -763,6 +821,9 @@ export default function UnitAdminDashboard() {
                                   setTaskEditDescription(t.description || '')
                                   setTaskEditLocation(t.location || '')
                                   setTaskEditInstructions(t.instructions || '')
+                                  setTaskEditCompletionKind((t.completion_kind as any) || '')
+                                  setTaskEditCompletionLabel(t.completion_label || '')
+                                  setTaskEditCompletionOptions((t.completion_options || []).join(', '))
                                 }}
                                 className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
                               >
@@ -1004,8 +1065,30 @@ export default function UnitAdminDashboard() {
                       return (
                         <tr key={p.edipi} className="border-t border-github-border text-gray-300">
                           <td className="p-2">{[p.rank, name].filter(Boolean).join(' ')}</td>
-                          <td className="p-2">{company}</td>
-                          <td className="p-2">{sectionLabel}</td>
+                          <td className="p-2">
+                            <select
+                              value={pendingCompanyForEdipi[p.edipi] ?? company}
+                              onChange={e => setPendingCompanyForEdipi(prev => ({ ...prev, [p.edipi]: e.target.value }))}
+                              className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                            >
+                              <option value="">Select company</option>
+                              {companies.map(cid => (
+                                <option key={cid} value={cid}>{cid}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="p-2">
+                            <select
+                              value={pendingSectionForEdipi[p.edipi] ?? String(p.platoon_id || '')}
+                              onChange={e => setPendingSectionForEdipi(prev => ({ ...prev, [p.edipi]: e.target.value }))}
+                              className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                            >
+                              <option value="">Select section</option>
+                              {(company ? sections.filter(s => (s as any).company_id === company) : sections).map(s => (
+                                <option key={s.id} value={String(s.id)}>{(s as any).display_name || s.section_name}</option>
+                              ))}
+                            </select>
+                          </td>
                           <td className="p-2">{role}</td>
                           <td className="p-2">
                             <div className="flex items-center gap-2">
@@ -1022,9 +1105,27 @@ export default function UnitAdminDashboard() {
                                   const next = (pendingRoles[p.edipi] ?? role) as any
                                   setUserRoleOverride(p.edipi, next)
                                   setPendingRoles(prev => ({ ...prev, [p.edipi]: next }))
+                                  ;(async () => {
+                                    if (import.meta.env.VITE_USE_SUPABASE === '1') {
+                                      const newCompany = pendingCompanyForEdipi[p.edipi]
+                                      const newSectionKey = pendingSectionForEdipi[p.edipi]
+                                      const sectionId = newSectionKey && /^\d+$/.test(newSectionKey) ? Number(newSectionKey) : undefined
+                                      try {
+                                        await sbUpdateUser(p.user_id, {
+                                          company_id: newCompany || undefined,
+                                          platoon_id: sectionId ? String(sectionId) : (newSectionKey || undefined),
+                                          org_role: next,
+                                        } as any)
+                                        const updated = { ...p }
+                                        if (newCompany !== undefined) updated.company_id = newCompany
+                                        if (newSectionKey !== undefined) updated.platoon_id = newSectionKey as any
+                                        updated.org_role = next
+                                        setEdipiMap(prev => ({ ...prev, [p.edipi]: updated }))
+                                      } catch {}
+                                    }
+                                  })()
                                 }}
-                                disabled={!pendingRoles[p.edipi] || pendingRoles[p.edipi] === role}
-                                className="px-3 py-2 bg-github-blue hover:bg-blue-600 disabled:bg-gray-600 text-white rounded"
+                                className="px-3 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
                               >
                                 Save
                               </button>

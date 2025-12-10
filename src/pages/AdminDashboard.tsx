@@ -8,11 +8,13 @@ export default function AdminDashboard() {
   const { user } = useAuthStore()
   const [query, setQuery] = useState('')
   const [units, setUnits] = useState<any[]>([])
-  const [admins, setAdmins] = useState<Array<{ unit_key: string; unit_name: string; admin_user_id: string }>>([])
+  const [admins, setAdmins] = useState<Array<{ unit_key: string; unit_name: string; admin_user_id: string; ruc?: string }>>([])
   const [assignEdipi, setAssignEdipi] = useState<Record<string, string>>({})
   const [adminProfiles, setAdminProfiles] = useState<Record<string, any>>({})
-  const [tab, setTab] = useState<'assigned' | 'unassigned'>('assigned')
+  const [tab, setTab] = useState<'list'>('list')
   const [loading, setLoading] = useState(true)
+  const [editingUnit, setEditingUnit] = useState<string | null>(null)
+  const [addingUnit, setAddingUnit] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -97,16 +99,10 @@ export default function AdminDashboard() {
         <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl p-6">
           <div className="flex border-b border-github-border mb-4">
             <button
-              onClick={() => setTab('assigned')}
-              className={`px-4 py-3 text-sm ${tab === 'assigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              onClick={() => setTab('list')}
+              className={`px-4 py-3 text-sm ${tab === 'list' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
-              Assigned
-            </button>
-            <button
-              onClick={() => setTab('unassigned')}
-              className={`px-4 py-3 text-sm ${tab === 'unassigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
-            >
-              Unassigned
+              Units
             </button>
           </div>
           <div className="flex items-center mb-4">
@@ -128,60 +124,80 @@ export default function AdminDashboard() {
                     <th className="text-left p-2">UIC</th>
                     <th className="text-left p-2">RUC</th>
                     <th className="text-left p-2">MCC</th>
-                    <th className="text-left p-2">Unit Admin</th>
-                    <th className="text-left p-2">Actions</th>
+                    <th className="text-left p-2">Admins</th>
+                    <th className="text-left p-2">Manage</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(tab === 'assigned' ? filtered.filter(u => !!getAdminFor(u.unit_key)) : filtered.filter(u => !getAdminFor(u.unit_key))).map(u => (
-                    <tr key={u.unit_key} className="border-t border-github-border text-gray-300">
-                      <td className="p-2">
-                        <div>{u.unit_name}</div>
-                        {getAdminFor(u.unit_key) && (
-                          <div className="text-xs text-gray-400">Admin: {getAdminName(getAdminFor(u.unit_key))} ({getAdminFor(u.unit_key)})</div>
-                        )}
-                      </td>
-                      <td className="p-2">{u.uic}</td>
-                      <td className="p-2">{u.ruc}</td>
-                      <td className="p-2">{u.mcc}</td>
-                      <td className="p-2">
-                        <input
-                          value={assignEdipi[u.unit_key] ?? getAdminFor(u.unit_key)}
-                          onChange={(e) => setAssignEdipi(prev => ({ ...prev, [u.unit_key]: e.target.value }))}
-                          placeholder="EDIPI"
-                          className="w-40 px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
-                        />
-                      </td>
-                      <td className="p-2 flex gap-2">
-                        <button
-                          onClick={async () => {
-                            const edipi = (assignEdipi[u.unit_key] ?? '').trim()
-                            if (!edipi) return
-                      await sbUpsertUnitAdmin(u.unit_key, u.unit_name, edipi)
-                      await sbPromoteUserToUnitAdmin(edipi, u.unit_key)
-                      const a = await sbListUnitAdmins()
-                      setAdmins(a)
-                      setAssignEdipi(prev => ({ ...prev, [u.unit_key]: '' }))
-                    }}
-                          className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
-                        >
-                          Assign
-                        </button>
-                        {getAdminFor(u.unit_key) && (
+                  {filtered.map(u => {
+                    const uk = u.unit_key
+                    const adminsForUnit = admins.filter(a => a.unit_key === uk)
+                    const adminChips = adminsForUnit.map(a => {
+                      const name = getAdminName(a.admin_user_id)
+                      return (
+                        <span key={`${uk}-${a.admin_user_id}`} className="inline-flex items-center gap-2 px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white mr-2">
+                          {name ? `${name} (${a.admin_user_id})` : a.admin_user_id}
                           <button
                             onClick={async () => {
-                              await sbRemoveUnitAdmin(u.unit_key)
-                              const a = await sbListUnitAdmins()
-                              setAdmins(a)
+                              await sbRemoveUnitAdmin(uk, a.admin_user_id)
+                              const next = await sbListUnitAdmins()
+                              setAdmins(next)
                             }}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                            className="px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
+                          >Remove</button>
+                        </span>
+                      )
+                    })
+                    return (
+                      <tr key={uk} className="border-t border-github-border text-gray-300">
+                        <td className="p-2"><div>{u.unit_name}</div></td>
+                        <td className="p-2">{u.uic}</td>
+                        <td className="p-2">{u.ruc}</td>
+                        <td className="p-2">{u.mcc}</td>
+                        <td className="p-2">{adminsForUnit.length ? <span>Assigned</span> : <span className="text-gray-500">Unassigned</span>}</td>
+                        <td className="p-2">
+                          {editingUnit === uk ? (
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap gap-2 mb-2">{adminChips}</div>
+                              {addingUnit === uk ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    value={assignEdipi[uk] ?? ''}
+                                    onChange={(e) => setAssignEdipi(prev => ({ ...prev, [uk]: e.target.value }))}
+                                    placeholder="EDIPI"
+                                    className="w-40 px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                                  />
+                                  <button
+                                    onClick={async () => {
+                                      const edipi = (assignEdipi[uk] ?? '').trim()
+                                      if (!edipi) return
+                                      await sbUpsertUnitAdmin(uk, u.unit_name, edipi, u.ruc)
+                                      await sbPromoteUserToUnitAdmin(edipi, uk)
+                                      const next = await sbListUnitAdmins()
+                                      setAdmins(next)
+                                      setAssignEdipi(prev => ({ ...prev, [uk]: '' }))
+                                      setAddingUnit(null)
+                                    }}
+                                    className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
+                                  >
+                                    Save
+                                  </button>
+                                  <button onClick={() => { setAddingUnit(null); setAssignEdipi(prev => ({ ...prev, [uk]: '' })) }} className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => setAddingUnit(uk)} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Add Admin</button>
+                                  <button onClick={() => { setEditingUnit(null); setAddingUnit(null) }} className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded">Done</button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <button onClick={() => { setEditingUnit(uk); setAddingUnit(null) }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Edit</button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

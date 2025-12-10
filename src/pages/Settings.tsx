@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, User, Bell, Palette, Shield, Save } from 'lucide-react'
 import HeaderTools from '@/components/HeaderTools'
 import { listCompanies, listSections } from '@/utils/unitStructure'
+import { sbUpdateUser } from '@/services/supabaseDataService'
 import { fetchJson, UsersIndexEntry, LocalUserProfile } from '@/services/localDataService'
 import bcrypt from 'bcryptjs'
 import '@/js/military-data.js'
@@ -227,22 +228,30 @@ export default function Settings() {
                   </div>
                   <div>
                     <button
-                      onClick={() => {
-                        const updated = {
-                          ...user!,
+                      onClick={async () => {
+                        if (!user) return
+                        const patch = {
                           first_name: firstName || undefined,
                           middle_initial: middleInitial || undefined,
                           last_name: lastName || undefined,
                           branch: branch || undefined,
                           rank: rank || undefined,
                           mos: mos || user?.mos || '',
-                          unit_id: unitId || user?.unit_id || '',
                           company_id: companyId || undefined,
                           platoon_id: platoonId || undefined,
+                          org_role: role,
                         }
-                        login(updated as any)
-                        if (user?.edipi) setUserRoleOverride(user.edipi, role)
-                        alert('Profile updated')
+                        try {
+                          if (import.meta.env.VITE_USE_SUPABASE === '1') {
+                            await sbUpdateUser(user.user_id, patch as any)
+                          }
+                          const updated = { ...user, ...patch, updated_at_timestamp: new Date().toISOString() }
+                          login(updated as any)
+                          if (user?.edipi) setUserRoleOverride(user.edipi, role)
+                          alert('Profile updated')
+                        } catch (e: any) {
+                          alert(e?.message || 'Failed to update profile')
+                        }
                       }}
                       className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg"
                     >

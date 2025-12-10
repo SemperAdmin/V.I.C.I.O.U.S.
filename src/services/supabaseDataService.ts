@@ -144,6 +144,16 @@ export const sbListSubmissions = async (user_id: string): Promise<MyFormSubmissi
   return (data as any) || []
 }
 
+export const sbListSubmissionsByUnit = async (unit_id: string): Promise<MyFormSubmission[]> => {
+  const { data, error } = await supabase
+    .from('my_form_submissions')
+    .select('*')
+    .eq('unit_id', unit_id)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data as any) || []
+}
+
 export const sbCreateSubmission = async (submission: Omit<MyFormSubmission, 'id' | 'created_at'>): Promise<MyFormSubmission> => {
   const { data, error } = await supabase
     .from('my_form_submissions')
@@ -188,4 +198,12 @@ export const sbListUsersByRuc = async (ruc: string): Promise<LocalUserProfile[]>
       : (user.unit_id || '')
     return String(userRuc) === String(ruc)
   })
+}
+
+export const sbUpdateUser = async (user_id: string, patch: Partial<LocalUserProfile>): Promise<void> => {
+  const { error } = await supabase
+    .from('users')
+    .update({ ...patch, updated_at_timestamp: new Date().toISOString() } as any)
+    .eq('user_id', user_id)
+  if (error) throw error
 }

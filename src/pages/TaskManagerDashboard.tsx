@@ -28,6 +28,9 @@ export default function TaskManagerDashboard() {
   const [taskEditDescription, setTaskEditDescription] = useState('')
   const [taskEditLocation, setTaskEditLocation] = useState('')
   const [taskEditInstructions, setTaskEditInstructions] = useState('')
+  const [taskEditCompletionKind, setTaskEditCompletionKind] = useState<'Text' | 'Date' | 'Options' | ''>('')
+  const [taskEditCompletionLabel, setTaskEditCompletionLabel] = useState('')
+  const [taskEditCompletionOptions, setTaskEditCompletionOptions] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [newDescription, setNewDescription] = useState('')
   const [newLocation, setNewLocation] = useState('')
@@ -75,7 +78,9 @@ export default function TaskManagerDashboard() {
       try {
         const allSecs = await listSections(unitKey)
         for (const s of allSecs) {
-          displayMap[s.section_name] = ((s as any).display_name || s.section_name)
+          const disp = ((s as any).display_name || s.section_name)
+          displayMap[s.section_name] = disp
+          displayMap[String(s.id)] = disp
         }
       } catch {}
       setSectionDisplayMap(displayMap)
@@ -281,15 +286,26 @@ export default function TaskManagerDashboard() {
                           <thead className="text-gray-400">
                             <tr>
                               <th className="text-left p-2">Member</th>
+                              <th className="text-left p-2">EDIPI</th>
+                              <th className="text-left p-2">Company</th>
+                              <th className="text-left p-2">Section</th>
                             </tr>
                           </thead>
                           <tbody>
                             {members.map(mid => {
                               const m = memberMap[mid]
-                              const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : mid
+                              const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
+                              const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
+                              const edipi = m?.edipi || mid
+                              const company = m?.company_id || ''
+                              const secKey = m?.platoon_id ? String(m.platoon_id) : ''
+                              const secLabel = sectionDisplayMap[secKey] || secKey || ''
                               return (
                                 <tr key={`${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
-                                  <td className="p-2">{name}</td>
+                                  <td className="p-2">{memberDisp}</td>
+                                  <td className="p-2">{edipi}</td>
+                                  <td className="p-2">{company}</td>
+                                  <td className="p-2">{secLabel}</td>
                                 </tr>
                               )
                             })}
@@ -319,15 +335,26 @@ export default function TaskManagerDashboard() {
                           <thead className="text-gray-400">
                             <tr>
                               <th className="text-left p-2">Member</th>
+                              <th className="text-left p-2">EDIPI</th>
+                              <th className="text-left p-2">Company</th>
+                              <th className="text-left p-2">Section</th>
                             </tr>
                           </thead>
                           <tbody>
                             {members.map(mid => {
                               const m = memberMap[mid]
-                              const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : mid
+                              const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
+                              const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
+                              const edipi = m?.edipi || mid
+                              const company = m?.company_id || ''
+                              const secKey = m?.platoon_id ? String(m.platoon_id) : ''
+                              const secLabel = sectionDisplayMap[secKey] || secKey || ''
                               return (
                                 <tr key={`${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
-                                  <td className="p-2">{name}</td>
+                                  <td className="p-2">{memberDisp}</td>
+                                  <td className="p-2">{edipi}</td>
+                                  <td className="p-2">{company}</td>
+                                  <td className="p-2">{secLabel}</td>
                                 </tr>
                               )
                             })}
@@ -354,6 +381,7 @@ export default function TaskManagerDashboard() {
                       <th className="text-left p-2">Location</th>
                       <th className="text-left p-2">Instructions</th>
                       <th className="text-left p-2">Responsible</th>
+                      <th className="text-left p-2">Completion</th>
                       <th className="text-left p-2">Actions</th>
                     </tr>
                   </thead>
@@ -371,15 +399,34 @@ export default function TaskManagerDashboard() {
                           <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         ) : (t.instructions || '')}</td>
                         <td className="p-2">{t.responsible_user_ids.join(', ')}</td>
+                        <td className="p-2">{taskEditingId === t.id ? (
+                          <div className="grid grid-cols-1 gap-2">
+                            <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                              <option value="">Completion type</option>
+                              <option value="Text">Text</option>
+                              <option value="Date">Date</option>
+                              <option value="Options">Options</option>
+                            </select>
+                            <input value={taskEditCompletionLabel} onChange={e => setTaskEditCompletionLabel(e.target.value)} placeholder="Label" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            {taskEditCompletionKind === 'Options' && (
+                              <input value={taskEditCompletionOptions} onChange={e => setTaskEditCompletionOptions(e.target.value)} placeholder="Options (comma-separated)" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            )}
+                          </div>
+                        ) : (
+                          [t.completion_kind, t.completion_label, (t.completion_options || []).join('/')].filter(Boolean).join(' • ')
+                        )}</td>
                         <td className="p-2 flex gap-2">
                           {taskEditingId === t.id ? (
                             <>
                               <button onClick={async () => {
-                                await updateSubTask(t.id, { description: taskEditDescription.trim(), location: taskEditLocation.trim() || undefined, instructions: taskEditInstructions.trim() || undefined })
+                                await updateSubTask(t.id, { description: taskEditDescription.trim(), location: taskEditLocation.trim() || undefined, instructions: taskEditInstructions.trim() || undefined, completion_kind: taskEditCompletionKind || undefined, completion_label: taskEditCompletionLabel.trim() || undefined, completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined })
                                 setTaskEditingId(null)
                                 setTaskEditDescription('')
                                 setTaskEditLocation('')
                                 setTaskEditInstructions('')
+                                setTaskEditCompletionKind('')
+                                setTaskEditCompletionLabel('')
+                                setTaskEditCompletionOptions('')
                                 const unitKey = (user!.unit_id || '').includes('-') ? (user!.unit_id as string).split('-')[1] : (user!.unit_id as string)
                                 const refreshed = await listSubTasks(unitKey)
                                 setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId)))
@@ -388,7 +435,7 @@ export default function TaskManagerDashboard() {
                             </>
                           ) : (
                             <>
-                              <button onClick={() => { setTaskEditingId(t.id); setTaskEditDescription(t.description || ''); setTaskEditLocation(t.location || ''); setTaskEditInstructions(t.instructions || '') }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Edit</button>
+                              <button onClick={() => { setTaskEditingId(t.id); setTaskEditDescription(t.description || ''); setTaskEditLocation(t.location || ''); setTaskEditInstructions(t.instructions || ''); setTaskEditCompletionKind((t.completion_kind as any) || ''); setTaskEditCompletionLabel(t.completion_label || ''); setTaskEditCompletionOptions((t.completion_options || []).join(', ')) }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Edit</button>
                               <button onClick={async () => { await deleteSubTask(t.id); const unitKey = (user!.unit_id || '').includes('-') ? (user!.unit_id as string).split('-')[1] : (user!.unit_id as string); const refreshed = await listSubTasks(unitKey); setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId))) }} className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded">Remove</button>
                             </>
                           )}
@@ -406,6 +453,16 @@ export default function TaskManagerDashboard() {
                         <input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Description" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                         <textarea value={newInstructions} onChange={e => setNewInstructions(e.target.value)} placeholder="Special instructions" rows={4} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                          <option value="">Completion type</option>
+                          <option value="Text">Text</option>
+                          <option value="Date">Date</option>
+                          <option value="Options">Options</option>
+                        </select>
+                        <input value={taskEditCompletionLabel} onChange={e => setTaskEditCompletionLabel(e.target.value)} placeholder="Completion label" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        {taskEditCompletionKind === 'Options' && (
+                          <input value={taskEditCompletionOptions} onChange={e => setTaskEditCompletionOptions(e.target.value)} placeholder="Completion options (comma-separated)" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        )}
                       </div>
                       <div className="mt-6 flex gap-2 justify-end">
                         <button onClick={async () => {
@@ -418,13 +475,16 @@ export default function TaskManagerDashboard() {
                             const nextNum = inSection.length + 1
                             const prefix = sectionPrefix || 'TASK'
                             const subId = `${prefix}-${String(nextNum).padStart(2, '0')}`
-                            await createSubTask({ unit_id: unitKey, section_id: mySectionId!, sub_task_id: subId, description: newDescription.trim(), responsible_user_ids: defaultResponsible, location: newLocation.trim() || undefined, instructions: newInstructions.trim() || undefined })
+                            await createSubTask({ unit_id: unitKey, section_id: mySectionId!, sub_task_id: subId, description: newDescription.trim(), responsible_user_ids: defaultResponsible, location: newLocation.trim() || undefined, instructions: newInstructions.trim() || undefined, completion_kind: taskEditCompletionKind || undefined, completion_label: taskEditCompletionLabel.trim() || undefined, completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined })
                             const refreshed = await listSubTasks(unitKey)
                             setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId)))
                             setCreateOpen(false)
                             setNewDescription('')
                             setNewLocation('')
                             setNewInstructions('')
+                            setTaskEditCompletionKind('')
+                            setTaskEditCompletionLabel('')
+                            setTaskEditCompletionOptions('')
                           } catch (err: any) {
                             setErrorMsg(err?.message || 'Failed to create task')
                           }

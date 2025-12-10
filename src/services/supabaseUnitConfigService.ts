@@ -20,6 +20,9 @@ export type UnitSubTask = {
   responsible_user_ids: string[]
   location?: string
   instructions?: string
+  completion_kind?: 'Text' | 'Date' | 'Options'
+  completion_label?: string
+  completion_options?: string[]
 }
 
 export type UnitCompany = {
@@ -109,6 +112,9 @@ export const updateSubTask = async (id: number, patch: Partial<UnitSubTask>): Pr
     instructions: patch.instructions,
     responsible_user_ids: patch.responsible_user_ids,
     sub_task_id: patch.sub_task_id,
+    completion_kind: patch.completion_kind,
+    completion_label: patch.completion_label,
+    completion_options: patch.completion_options,
   }
   const { error } = await supabase.from('unit_sub_tasks').update(allowed as any).eq('id', id)
   if (error) throw error
