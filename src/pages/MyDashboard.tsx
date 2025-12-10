@@ -260,7 +260,7 @@ export default function MyDashboard() {
             const loc = map[tid]?.location || ''
             const instr = (map[tid] as any)?.instructions || ''
             const formName = formsInbound.find(ff => ff.task_ids.includes(tid))?.name || 'Inbound'
-            rows.push({ formName, createdAt: lastLog?.at, description: (label?.description || tid), section: sec, location: loc || undefined, instructions: instr || undefined, clearedBy: lastLog?.note })
+            rows.push({ formName, createdAt: (lastLog?.at || entry?.cleared_at_timestamp), description: (label?.description || tid), section: sec, location: loc || undefined, instructions: instr || undefined, clearedBy: lastLog?.note })
           }
           try {
             const subs = await listSubmissions(user.user_id)
@@ -638,7 +638,7 @@ export default function MyDashboard() {
                                     const desc = (label?.description || tid)
                                     const entry = (progress.progress_tasks || []).find(t => String(t.sub_task_id) === String(tid)) as any
                                     const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
-                                    const row = { text: desc, note: lastLog?.note, at: lastLog?.at }
+                                    const row = { text: desc, note: lastLog?.note, at: (lastLog?.at || (entry as any)?.cleared_at_timestamp) }
                                     if (!completedBySection[secName]) completedBySection[secName] = []
                                     completedBySection[secName].push(row)
                                   }

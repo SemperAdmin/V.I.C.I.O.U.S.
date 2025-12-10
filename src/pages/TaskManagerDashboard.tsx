@@ -67,7 +67,7 @@ export default function TaskManagerDashboard() {
   useEffect(() => {
     if (!user || !user.unit_id) return
     const load = async () => {
-      try { console.log('TaskManager init', { supabase: import.meta.env.VITE_USE_SUPABASE, unit: user.unit_id, platoon: user.platoon_id }) } catch {}
+      console.log('TaskManager init', { supabase: import.meta.env.VITE_USE_SUPABASE, unit: user.unit_id, platoon: user.platoon_id })
       const unitKey = (user.unit_id || '').includes('-') ? (user.unit_id as string).split('-')[1] : (user.unit_id as string)
       const profiles: Record<string, LocalUserProfile> = {}
       if (import.meta.env.VITE_USE_SUPABASE === '1') {
@@ -76,8 +76,7 @@ export default function TaskManagerDashboard() {
           for (const profile of allUsers) {
             profiles[profile.user_id] = profile
           }
-        } catch {
-        }
+        } catch (err) { console.error(err) }
       }
       if (Object.keys(profiles).length === 0) {
         try {
@@ -86,8 +85,7 @@ export default function TaskManagerDashboard() {
             const profile = await fetchJson<LocalUserProfile>(`/${entry.path}`)
             profiles[profile.user_id] = profile
           }
-        } catch {
-        }
+        } catch (err) { console.error(err) }
       }
       setMemberMap(profiles)
 
@@ -99,7 +97,7 @@ export default function TaskManagerDashboard() {
         }
       }
       setTaskLabels(labels)
-      try { console.log('Labels built', Object.keys(labels).length) } catch {}
+      console.log('Labels built', Object.keys(labels).length)
 
       const members = await listMembers()
       // Build section display name map (code -> display)
@@ -113,9 +111,9 @@ export default function TaskManagerDashboard() {
         }
       } catch (err) { console.error(err) }
       setSectionDisplayMap(displayMap)
-      try { console.log('Sections loaded', Object.keys(displayMap).length) } catch {}
+      console.log('Sections loaded', Object.keys(displayMap).length)
       // Resolve user's section and load tasks from Supabase unit_sub_tasks
-      let sectionTaskIds = new Set<string>()
+      const sectionTaskIds = new Set<string>()
       const subTaskById: Record<string, UnitSubTask> = {}
       try {
         const secs = await listSections(unitKey)
@@ -138,7 +136,7 @@ export default function TaskManagerDashboard() {
         }
       } catch (err) { console.error(err) }
       setSubTaskMap(subTaskById)
-      try { console.log('SubTasks in section', Object.keys(subTaskById).length) } catch {}
+      console.log('SubTasks in section', Object.keys(subTaskById).length)
       // Determine form-kind task id sets
       const ruc = (user.unit_id || '').includes('-') ? (user.unit_id || '').split('-')[1] : (user.unit_id || '')
       let inboundTaskIds = new Set<string>()
@@ -155,7 +153,7 @@ export default function TaskManagerDashboard() {
         }
         setFormNameByTask(fn)
       } catch (err) { console.error(err) }
-      const sectionMembers = Object.values(profiles).filter(p => p.unit_id === user.unit_id && (!!user.platoon_id ? String(p.platoon_id) === String(user.platoon_id) : true))
+      const sectionMembers = Object.values(profiles).filter(p => p.unit_id === user.unit_id && (user.platoon_id ? String(p.platoon_id) === String(user.platoon_id) : true))
       const sectionEdipis = new Set(sectionMembers.map(p => p.edipi))
       setDefaultResponsible(Array.from(sectionEdipis))
 
@@ -207,6 +205,44 @@ export default function TaskManagerDashboard() {
             }
           }
         }
+
+        for (const p of sectionMembers) {
+          const prog = await getProgressByMember(p.user_id)
+          for (const t of (prog.progress_tasks || [])) {
+            const subId = t.sub_task_id
+            if (!responsibleSet.has(subId)) continue
+            const inScope = sectionTaskIds.has(subId) || (sectionPrefix ? String(subId).startsWith(`${sectionPrefix}-`) : false)
+            if (!inScope) continue
+            const isInbound = inboundTaskIds.has(subId)
+            const isOutbound = outboundTaskIds.has(subId)
+            if (t.status === 'Cleared') {
+              if (!allCompletedByTask[subId]) allCompletedByTask[subId] = new Set()
+              allCompletedByTask[subId].add(p.user_id)
+              if (isInbound) {
+                if (!inboundCompletedByTask[subId]) inboundCompletedByTask[subId] = new Set()
+                inboundCompletedByTask[subId].add(p.user_id)
+                if (inboundByTask[subId]) inboundByTask[subId].delete(p.user_id)
+              }
+              if (isOutbound) {
+                if (outboundByTask[subId]) outboundByTask[subId].delete(p.user_id)
+              }
+              if (allPendingByTask[subId]) allPendingByTask[subId].delete(p.user_id)
+            }
+            if (t.status === 'Pending') {
+              if (!allPendingByTask[subId]) allPendingByTask[subId] = new Set()
+              allPendingByTask[subId].add(p.user_id)
+              if (isInbound) {
+                if (!inboundByTask[subId]) inboundByTask[subId] = new Set()
+                inboundByTask[subId].add(p.user_id)
+                if (inboundCompletedByTask[subId]) inboundCompletedByTask[subId].delete(p.user_id)
+              }
+              if (isOutbound) {
+                if (!outboundByTask[subId]) outboundByTask[subId] = new Set()
+                outboundByTask[subId].add(p.user_id)
+              }
+            }
+          }
+        }
       } catch (err) { console.error(err) }
       const inboundGroupsArr = Object.fromEntries(Object.entries(inboundByTask).map(([k, v]) => [k, Array.from(v)]))
       setInboundGroups(inboundGroupsArr)
@@ -215,7 +251,7 @@ export default function TaskManagerDashboard() {
       setOutboundGroups(Object.fromEntries(Object.entries(outboundByTask).map(([k, v]) => [k, Array.from(v)])))
       setPendingByTask(Object.fromEntries(Object.entries(allPendingByTask).map(([k, v]) => [k, Array.from(v)])))
       setCompletedByTask(Object.fromEntries(Object.entries(allCompletedByTask).map(([k, v]) => [k, Array.from(v)])))
-      try { console.log('Inbound/Outbound sizes', { inbound: Object.keys(inboundGroupsArr).length, outbound: Object.keys(outboundByTask).length }) } catch {}
+      console.log('Inbound/Outbound sizes', { inbound: Object.keys(inboundGroupsArr).length, outbound: Object.keys(outboundByTask).length })
 
       const secGrouped: Record<string, Array<{ subTaskId: string; members: string[] }>> = {}
       for (const [subTaskId, members] of Object.entries(inboundGroupsArr)) {
@@ -285,7 +321,7 @@ export default function TaskManagerDashboard() {
       })
       setScopedTasks(scoped)
       setScopedSubTasks(filtered)
-      try { console.log('ScopedSubTasks count', filtered.length) } catch {}
+      console.log('ScopedSubTasks count', filtered.length)
     }
     load()
   }, [user, refreshKey])
@@ -701,8 +737,8 @@ export default function TaskManagerDashboard() {
 
                 
                 {createOpen && (
-                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-6">
+                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                    <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-black border border-github-border rounded-xl p-6">
                       <h3 className="text-white text-lg mb-4">{editingTaskId ? 'Edit Task' : 'Create Task'}</h3>
                       <div className="grid grid-cols-1 gap-3">
                         <input value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Description" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
@@ -739,7 +775,7 @@ export default function TaskManagerDashboard() {
                               const subId = `${prefix}-${String(nextNum).padStart(2, '0')}`
                               await createSubTask({ unit_id: unitKey, section_id: mySectionId!, sub_task_id: subId, description: newDescription.trim(), responsible_user_ids: defaultResponsible, location: newLocation.trim() || undefined, map_url: newLocationUrl.trim() || undefined, instructions: newInstructions.trim() || undefined, completion_kind: taskEditCompletionKind || undefined, completion_label: taskEditCompletionLabel.trim() || undefined, completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined })
                             }
-                            try { const key = mySectionId ? `section_instructions:${unitKey}:${mySectionId}` : ''; if (key) localStorage.setItem(key, sectionInstructions.trim()) } catch {}
+                            try { const key = mySectionId ? `section_instructions:${unitKey}:${mySectionId}` : ''; if (key) localStorage.setItem(key, sectionInstructions.trim()) } catch (err) { console.error(err) }
                             const refreshed = await listSubTasks(unitKey)
                             setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId)))
                             setCreateOpen(false)
@@ -761,107 +797,129 @@ export default function TaskManagerDashboard() {
                   </div>
                 )}
 
-                {actionOpen && (
-                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-                    <div className="w-full max-w-xl bg-black border border-github-border rounded-xl p-6">
-                      <h3 className="text-white text-lg mb-4">Task Manager Action</h3>
-                      <div className="grid grid-cols-1 gap-3 text-sm">
-                        <div className="text-gray-300">
-                          {(() => {
-                            const m = actionMemberId ? memberMap[actionMemberId] : undefined
-                            const name = m ? [m.rank, [m.first_name, m.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ') : ''
-                            const edipi = m?.edipi || ''
-                            const comp = m?.company_id || ''
-                            const secKey = m?.platoon_id ? String(m.platoon_id) : ''
-                            const secLabel = secKey ? (sectionDisplayMap[secKey] || secKey) : ''
-                            return (
-                              <div className="grid grid-cols-4 gap-3">
-                                <div><span className="text-gray-400">Member:</span> {name}</div>
-                                <div><span className="text-gray-400">EDIPI:</span> {edipi}</div>
-                                <div><span className="text-gray-400">Company:</span> {comp}</div>
-                                <div><span className="text-gray-400">Section:</span> {secLabel}</div>
-                              </div>
-                            )
-                          })()}
-                        </div>
-                        <div className="text-gray-300">
-                          <div className="mb-1"><span className="text-gray-400">Section Instructions:</span></div>
-                          <div className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white whitespace-pre-wrap">{actionSectionInstructions || 'None'}</div>
-                        </div>
-                        <div className="text-gray-300">
-                          {(() => {
-                            const st = actionSubTaskId ? subTaskMap[actionSubTaskId] : undefined
-                            const kind = st?.completion_kind || ''
-                            const label = st?.completion_label || ''
-                            const opts = (st?.completion_options || [])
-                            return (
-                              <div className="grid grid-cols-1 gap-2">
-                                <div className="text-gray-400">{[kind, label].filter(Boolean).join(' • ')}</div>
-                                {kind === 'Date' ? (
-                                  <input type="date" value={actionCompletionValue} onChange={e => setActionCompletionValue(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
-                                ) : kind === 'Options' ? (
-                                  <select value={actionCompletionValue} onChange={e => setActionCompletionValue(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
-                                    <option value="">Select</option>
-                                    {opts.map(o => (<option key={o} value={o}>{o}</option>))}
-                                  </select>
-                                ) : (
-                                  <input value={actionCompletionValue} onChange={e => setActionCompletionValue(e.target.value)} placeholder="Enter value" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
-                                )}
-                              </div>
-                            )
-                          })()}
-                        </div>
-                        {actionMsg && <div className="text-red-400 text-sm">{actionMsg}</div>}
-                      </div>
-                      <div className="mt-6 flex gap-2 justify-end">
-                        <button onClick={async () => {
-                          setActionMsg('')
-                          try {
-                            if (!user || !actionMemberId || !actionSubTaskId) throw new Error('Missing selection')
-                            const checklist = await getChecklistByUnit(user.unit_id)
-                            const taskDef = checklist.sections.flatMap(s => s.sub_tasks).find(st => st.sub_task_id === actionSubTaskId)
-                            if (actionMemberId === user.user_id && taskDef && (taskDef.responsible_user_id || []).includes(user.user_id)) throw new Error('Cannot sign-off your own task when you are the POC')
-                            const progress = await getProgressByMember(actionMemberId)
-                            const currentSha = progress.current_file_sha
-                            const computedSha = await sha256String(canonicalize(progress))
-                            if (currentSha !== computedSha) throw new Error('Conflict detected. Please refresh progress data.')
-                            const now = new Date().toISOString()
-                            const idx = progress.progress_tasks.findIndex(t => t.sub_task_id === actionSubTaskId)
-                            if (idx === -1) progress.progress_tasks.push({ sub_task_id: actionSubTaskId, status: 'Cleared', cleared_by_user_id: user.user_id, cleared_at_timestamp: now })
-                            else {
-                              progress.progress_tasks[idx].status = 'Cleared'
-                              ;(progress.progress_tasks[idx] as any).cleared_by_user_id = user.user_id
-                              ;(progress.progress_tasks[idx] as any).cleared_at_timestamp = now
-                            }
-                            const newCanonical = canonicalize(progress)
-                            const newSha = await sha256String(newCanonical)
-                            progress.current_file_sha = newSha
-                            if (import.meta.env.VITE_USE_SUPABASE === '1') {
-                              try { await sbUpsertProgress(progress) } catch (err) { throw err }
-                            } else {
-                              try { await triggerUpdateProgressDispatch({ progress }) } catch (err) { throw err }
-                            }
-                            try { window.dispatchEvent(new CustomEvent('progress-updated', { detail: { member_user_id: actionMemberId } })) } catch {}
-                            setActionOpen(false)
-                            setActionMemberId(null)
-                            setActionSubTaskId(null)
-                            setActionCompletionValue('')
-                            setActionSectionInstructions('')
-                            setRefreshKey(k => k + 1)
-                          } catch (err: any) {
-                            setActionMsg(err?.message || 'Failed to save')
-                          }
-                        }} className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded">Save</button>
-                        <button onClick={() => { setActionOpen(false); setActionMemberId(null); setActionSubTaskId(null); setActionCompletionValue(''); setActionSectionInstructions('') }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
         </div>
       </main>
+      {actionOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-xl max-h-[85vh] overflow-y-auto bg-black border border-github-border rounded-xl p-6">
+            <h3 className="text-white text-lg mb-4">Task Manager Action</h3>
+            <div className="grid grid-cols-1 gap-3 text-sm">
+              <div className="text-gray-300">
+                {(() => {
+                  const m = actionMemberId ? memberMap[actionMemberId] : undefined
+                  const name = m ? [m.rank, [m.first_name, m.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ') : ''
+                  const edipi = m?.edipi || ''
+                  const comp = m?.company_id || ''
+                  const secKey = m?.platoon_id ? String(m.platoon_id) : ''
+                  const secLabel = secKey ? (sectionDisplayMap[secKey] || secKey) : ''
+                  return (
+                    <div className="grid grid-cols-4 gap-3">
+                      <div><span className="text-gray-400">Member:</span> {name}</div>
+                      <div><span className="text-gray-400">EDIPI:</span> {edipi}</div>
+                      <div><span className="text-gray-400">Company:</span> {comp}</div>
+                      <div><span className="text-gray-400">Section:</span> {secLabel}</div>
+                    </div>
+                  )
+                })()}
+              </div>
+              <div className="text-gray-300">
+                <div className="mb-1"><span className="text-gray-400">Section Instructions:</span></div>
+                <div className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white whitespace-pre-wrap">{actionSectionInstructions || 'None'}</div>
+              </div>
+              <div className="text-gray-300">
+                {(() => {
+                  const st = actionSubTaskId ? subTaskMap[actionSubTaskId] : undefined
+                  const kind = st?.completion_kind || ''
+                  const label = st?.completion_label || ''
+                  const opts = (st?.completion_options || [])
+                  return (
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="text-gray-400">{[kind, label].filter(Boolean).join(' • ')}</div>
+                      {kind === 'Date' ? (
+                        <input type="date" value={actionCompletionValue} onChange={e => setActionCompletionValue(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                      ) : kind === 'Options' ? (
+                        <select value={actionCompletionValue} onChange={e => setActionCompletionValue(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                          <option value="">Select</option>
+                          {opts.map(o => (<option key={o} value={o}>{o}</option>))}
+                        </select>
+                      ) : (
+                        <input value={actionCompletionValue} onChange={e => setActionCompletionValue(e.target.value)} placeholder="Enter value" className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+              {actionMsg && <div className="text-red-400 text-sm">{actionMsg}</div>}
+            </div>
+            <div className="mt-6 flex gap-2 justify-end">
+              <button onClick={async () => {
+                setActionMsg('')
+                try {
+                  if (!user || !actionMemberId || !actionSubTaskId) throw new Error('Missing selection')
+                  const checklist = await getChecklistByUnit(user.unit_id)
+                  const taskDef = checklist.sections.flatMap(s => s.sub_tasks).find(st => st.sub_task_id === actionSubTaskId)
+                  if (actionMemberId === user.user_id && taskDef && (taskDef.responsible_user_id || []).includes(user.user_id)) throw new Error('Cannot sign-off your own task when you are the POC')
+
+                  let progress = await getProgressByMember(actionMemberId)
+                  const initialCanonical = canonicalize(progress)
+                  const initialSha = await sha256String(initialCanonical)
+                  if (!progress.current_file_sha) {
+                    progress.current_file_sha = initialSha
+                  } else if (progress.current_file_sha !== initialSha) {
+                    const refreshed = await getProgressByMember(actionMemberId)
+                    const refreshedCanonical = canonicalize(refreshed)
+                    const refreshedSha = await sha256String(refreshedCanonical)
+                    if (!refreshed.current_file_sha || refreshed.current_file_sha !== refreshedSha) {
+                      refreshed.current_file_sha = refreshedSha
+                    }
+                    progress = refreshed
+                  }
+
+                  const now = new Date().toISOString()
+                  const st = actionSubTaskId ? subTaskMap[actionSubTaskId] : undefined
+                  const label = st?.completion_label || ''
+                  const note = [label, actionCompletionValue].filter(Boolean).join(': ') || 'Cleared'
+                  const idx = progress.progress_tasks.findIndex(t => t.sub_task_id === actionSubTaskId)
+                  if (idx === -1) {
+                    const entry: any = { sub_task_id: actionSubTaskId, status: 'Cleared', cleared_by_user_id: user.user_id, cleared_at_timestamp: now, logs: [{ at: now, note }] }
+                    progress.progress_tasks.push(entry as any)
+                  } else {
+                    progress.progress_tasks[idx].status = 'Cleared'
+                    ;(progress.progress_tasks[idx] as any).cleared_by_user_id = user.user_id
+                    ;(progress.progress_tasks[idx] as any).cleared_at_timestamp = now
+                    const logsArr = Array.isArray((progress.progress_tasks[idx] as any).logs) ? (progress.progress_tasks[idx] as any).logs : []
+                    logsArr.push({ at: now, note })
+                    ;(progress.progress_tasks[idx] as any).logs = logsArr
+                  }
+                  const finalCanonical = canonicalize(progress)
+                  const finalSha = await sha256String(finalCanonical)
+                  progress.current_file_sha = finalSha
+
+                  if (import.meta.env.VITE_USE_SUPABASE === '1') {
+                    await sbUpsertProgress(progress)
+                  } else {
+                    await triggerUpdateProgressDispatch({ progress })
+                  }
+
+                  window.dispatchEvent(new CustomEvent('progress-updated', { detail: { member_user_id: actionMemberId } }))
+                  setActionOpen(false)
+                  setActionMemberId(null)
+                  setActionSubTaskId(null)
+                  setActionCompletionValue('')
+                  setActionSectionInstructions('')
+                  setRefreshKey(k => k + 1)
+                } catch (err: any) {
+                  setActionMsg(err?.message || 'Failed to save')
+                }
+              }} className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded">Save</button>
+              <button onClick={() => { setActionOpen(false); setActionMemberId(null); setActionSubTaskId(null); setActionCompletionValue(''); setActionSectionInstructions('') }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
