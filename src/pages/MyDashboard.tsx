@@ -7,7 +7,9 @@ import { listPendingForSectionManager, listArchivedForUser, getProgressByMember,
 import { listSections } from '@/utils/unitStructure'
 import { listForms, UnitForm } from '@/utils/formsStore'
 import { listSubTasks, UnitSubTask } from '@/utils/unitTasks'
+import { UNITS } from '@/utils/units'
 import { getRoleOverride } from '@/utils/localUsersStore'
+import { googleMapsLink } from '@/utils/maps'
 import { normalizeOrgRole, normalizeSectionRole } from '@/utils/roles'
 import { sbListUsers } from '@/services/supabaseDataService'
 import { listMyItems, createMyItem, MyItem } from '@/utils/myItemsStore'
@@ -43,6 +45,10 @@ export default function MyDashboard() {
   const [inboundCompletedRows, setInboundCompletedRows] = useState<Array<{ formName: string; createdAt?: string; description: string; section: string; location?: string }>>([])
   const [subTaskMap, setSubTaskMap] = useState<Record<string, UnitSubTask>>({})
   const [refreshKey, setRefreshKey] = useState(0)
+  const [arrivalDate, setArrivalDate] = useState<string>('')
+  const [departureDate, setDepartureDate] = useState<string>('')
+  const [selectedUnit, setSelectedUnit] = useState<string>('')
+  const [unitOptions, setUnitOptions] = useState<Array<{ id: string; name: string }>>([])
 
   const overrideRole = getRoleOverride(user?.user_id || '')?.org_role
   const isSectionLead = !!(normalizeSectionRole(user?.section_role) === 'Section_Reviewer' || normalizeOrgRole(user?.org_role) === 'Section_Manager' || normalizeOrgRole(overrideRole) === 'Section_Manager')
@@ -141,6 +147,17 @@ export default function MyDashboard() {
               }
             }
           } catch {}
+          if (pRows.length === 0) {
+            for (const f of formsInbound) {
+              for (const tid of f.task_ids) {
+                const label = taskLabels[tid]
+                const code = label?.section_name || ''
+                const sec = code ? (sectionDisplayMap[code] || code) : ''
+                const loc = (map[tid] as any)?.location || ''
+                pRows.push({ formName: f.name, createdAt: undefined, description: (label?.description || tid), section: sec, location: loc || undefined })
+              }
+            }
+          }
           setInboundPendingRows(pRows)
           const rows: Array<{ formName: string; createdAt?: string; description: string; section: string; location?: string }> = []
           for (const tid of Array.from(clearedIds)) {
@@ -210,6 +227,13 @@ export default function MyDashboard() {
     resolveSection()
   }, [user?.unit_id, user?.platoon_id])
 
+  useEffect(() => {
+    const opts = (UNITS || []).map(u => ({ id: `${u.uic}-${u.ruc}-${u.mcc}`, name: u.unitName }))
+    const unique = Array.from(new Map(opts.map(o => [o.id, o])).values())
+    setUnitOptions(unique)
+    setSelectedUnit(user?.unit_id || unique[0]?.id || '')
+  }, [user?.unit_id])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-github-dark flex items-center justify-center">
@@ -239,11 +263,12 @@ export default function MyDashboard() {
               <button onClick={() => setActiveTab('outbound')} className={`px-4 py-3 text-sm ${activeTab==='outbound'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Outbound</button>
               
             </div>
-            <button onClick={() => { setNewKind('Inbound'); setSelectedFormId(forms.filter(f => f.kind==='Inbound')[0]?.id || null); setCreateOpen(true) }} className="px-3 py-2 bg-github-blue hover:bg-blue-600 text-white rounded">Create New</button>
+            <button onClick={() => { setNewKind('Inbound'); setSelectedFormId(forms.filter(f => f.kind==='Inbound')[0]?.id || null); setArrivalDate(new Date().toISOString().slice(0,10)); setDepartureDate(''); setSelectedUnit(user?.unit_id || selectedUnit); setCreateOpen(true) }} className="px-3 py-2 bg-github-blue hover:bg-blue-600 text-white rounded">Create New</button>
           </div>
           <div className="p-6 space-y-6">
             {activeTab === 'inbound' && (
               <div className="space-y-6">
+                
                 {user?.org_role === 'Member' && (
                   <div>
                     <h2 className="text-white text-lg mb-3">Assigned To Me</h2>
@@ -259,96 +284,110 @@ export default function MyDashboard() {
                   </div>
                 )}
                 <div>
-                  <h2 className="text-white text-lg mb-3">My Forms</h2>
+                  <h2 className="text-white text-lg mb-3">Pending</h2>
                   {myInbound.length ? (
-                    <ul className="space-y-2">
-                      {myInbound.map(i => (
-                        <li
-                          key={i.id}
-                          className="text-sm text-gray-300 cursor-pointer hover:text-white"
-                          onClick={async () => {
-                            if (!user) return
-                            const form = i.form_id ? forms.find(f => f.id === i.form_id) : forms.find(f => f.name === i.name && f.kind === 'Inbound')
-                            if (!form) return
-                            let tasks: { sub_task_id: string; description: string; status: 'Pending' }[] = []
-                            try {
-                              const progress = await getProgressByMember(user.user_id)
-                              const pendingSet = new Set(progress.progress_tasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
-                              tasks = form.task_ids
-                                .filter(tid => pendingSet.has(tid))
-                                .map(tid => ({
-                                  sub_task_id: tid,
-                                  description: (taskLabels[tid]?.description || tid),
-                                  status: 'Pending' as const,
-                                }))
-                              // Build completed grouping by section for this form
-                              const completedSet = new Set(progress.progress_tasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
-                              const completedBySection: Record<string, { text: string; note?: string; at?: string }[]> = {}
-                              for (const tid of form.task_ids) {
-                                if (!completedSet.has(tid)) continue
-                                const label = taskLabels[tid]
-                                const secCode = label?.section_name || ''
-                                const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                                const desc = (label?.description || tid)
-                                const entry = (progress.progress_tasks || []).find(t => String(t.sub_task_id) === String(tid)) as any
-                                const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
-                                const row = { text: desc, note: lastLog?.note, at: lastLog?.at }
-                                if (!completedBySection[secName]) completedBySection[secName] = []
-                                completedBySection[secName].push(row)
-                              }
-                              setPreviewCompletedBySection(completedBySection)
-                              // Build consolidated completed rows across all sections
-                              const consolidated: Array<{ section: string; task: string; note?: string; at?: string }> = []
-                              for (const [sec, rows] of Object.entries(completedBySection)) {
-                                for (const r of rows) consolidated.push({ section: sec, task: r.text, note: r.note, at: r.at })
-                              }
-                              setPreviewCompletedRows(consolidated)
-                            } catch {}
-                            if (tasks.length === 0) {
-                              tasks = form.task_ids.map(tid => ({
-                                sub_task_id: tid,
-                                description: (taskLabels[tid]?.description || tid),
-                                status: 'Pending' as const,
-                              }))
-                            }
-                            const pendingBySection: Record<string, string[]> = {}
-                            // Ensure a section entry exists for each form task even if none pending
-                            const allSectionNames = new Set<string>()
-                            for (const tid of form.task_ids) {
-                              const label = taskLabels[tid]
-                              const code = label?.section_name || ''
-                              const name = code ? (sectionDisplayMap[code] || code) : ''
-                              allSectionNames.add(name)
-                            }
-                            for (const name of allSectionNames) pendingBySection[name] = []
-                            for (const t of tasks) {
-                              const label = taskLabels[t.sub_task_id]
-                              const secCode = label?.section_name || ''
-                              const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                              pendingBySection[secName].push(t.description)
-                            }
-                            setPreviewPendingBySection(pendingBySection)
-                            const preview: MyFormSubmission = {
-                              id: Date.now(),
-                              user_id: user.user_id,
-                              unit_id: user.unit_id,
-                              form_id: form.id,
-                              form_name: form.name,
-                              kind: 'Inbound',
-                              created_at: new Date().toISOString(),
-                              member: { edipi: user.edipi, rank: user.rank, first_name: user.first_name, last_name: user.last_name, company_id: user.company_id, platoon_id: user.platoon_id },
-                              tasks,
-                            }
-                            setSubmissionPreview(preview)
-                          }}
-                        >
-                          {i.name}
-                        </li>
-                      ))}
-                    </ul>
-                    ) : (
-                      <p className="text-gray-400 text-sm">No inbound items</p>
-                    )}
+                    <div className="mt-4">
+                      <div className="grid grid-cols-4 text-gray-400 text-sm mb-2">
+                        <div className="text-left p-2">Form</div>
+                        <div className="text-left p-2">Unit</div>
+                        <div className="text-left p-2">Created</div>
+                        <div className="text-left p-2">Action</div>
+                      </div>
+                      <table className="min-w-full text-sm">
+                        <tbody>
+                          {myInbound.map(i => (
+                            <tr key={`in-${i.id}`} className="border-t border-github-border text-gray-300">
+                              <td className="p-2">{i.name}</td>
+                              <td className="p-2">{user?.unit_id || ''}</td>
+                              <td className="p-2">{new Date(i.created_at).toLocaleString()}</td>
+                              <td className="p-2">
+                                <button
+                                  className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                                  onClick={async () => {
+                                    if (!user) return
+                                    const form = i.form_id ? forms.find(f => f.id === i.form_id) : forms.find(f => f.name === i.name && f.kind === 'Inbound')
+                                    if (!form) return
+                                    let tasks: { sub_task_id: string; description: string; status: 'Pending' }[] = []
+                                    try {
+                                      const progress = await getProgressByMember(user.user_id)
+                                      const pendingSet = new Set(progress.progress_tasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
+                                      tasks = form.task_ids
+                                        .filter(tid => pendingSet.has(tid))
+                                        .map(tid => ({
+                                          sub_task_id: tid,
+                                          description: (taskLabels[tid]?.description || tid),
+                                          status: 'Pending' as const,
+                                        }))
+                                      const completedSet = new Set(progress.progress_tasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                                      const completedBySection: Record<string, { text: string; note?: string; at?: string }[]> = {}
+                                      for (const tid of form.task_ids) {
+                                        if (!completedSet.has(tid)) continue
+                                        const label = taskLabels[tid]
+                                        const secCode = label?.section_name || ''
+                                        const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                                        const desc = (label?.description || tid)
+                                        const entry = (progress.progress_tasks || []).find(t => String(t.sub_task_id) === String(tid)) as any
+                                        const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
+                                        const row = { text: desc, note: lastLog?.note, at: lastLog?.at }
+                                        if (!completedBySection[secName]) completedBySection[secName] = []
+                                        completedBySection[secName].push(row)
+                                      }
+                                      setPreviewCompletedBySection(completedBySection)
+                                      const consolidated: Array<{ section: string; task: string; note?: string; at?: string }> = []
+                                      for (const [sec, rows] of Object.entries(completedBySection)) {
+                                        for (const r of rows) consolidated.push({ section: sec, task: r.text, note: r.note, at: r.at })
+                                      }
+                                      setPreviewCompletedRows(consolidated)
+                                    } catch {}
+                                    if (tasks.length === 0) {
+                                      tasks = form.task_ids.map(tid => ({
+                                        sub_task_id: tid,
+                                        description: (taskLabels[tid]?.description || tid),
+                                        status: 'Pending' as const,
+                                      }))
+                                    }
+                                    const pendingBySection: Record<string, string[]> = {}
+                                    const allSectionNames = new Set<string>()
+                                    for (const tid of form.task_ids) {
+                                      const label = taskLabels[tid]
+                                      const code = label?.section_name || ''
+                                      const name = code ? (sectionDisplayMap[code] || code) : ''
+                                      allSectionNames.add(name)
+                                    }
+                                    for (const name of allSectionNames) pendingBySection[name] = []
+                                    for (const t of tasks) {
+                                      const label = taskLabels[t.sub_task_id]
+                                      const secCode = label?.section_name || ''
+                                      const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                                      pendingBySection[secName].push(t.description)
+                                    }
+                                    setPreviewPendingBySection(pendingBySection)
+                                    const preview: MyFormSubmission = {
+                                      id: Date.now(),
+                                      user_id: user.user_id,
+                                      unit_id: selectedUnit || user.unit_id,
+                                      form_id: form.id,
+                                      form_name: form.name,
+                                      kind: 'Inbound',
+                                      created_at: new Date().toISOString(),
+                                      member: { edipi: user.edipi, rank: user.rank, first_name: user.first_name, last_name: user.last_name, company_id: user.company_id, platoon_id: user.platoon_id },
+                                      tasks,
+                                    }
+                                    ;(preview as any).arrival_date = arrivalDate || new Date().toISOString().slice(0,10)
+                                    setSubmissionPreview(preview)
+                                  }}
+                                >
+                                  View
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-sm">No inbound items</p>
+                  )}
                 </div>
                 <div>
                   <h2 className="text-white text-lg mb-3">Pending Tasks</h2>
@@ -361,7 +400,7 @@ export default function MyDashboard() {
                             <li>{r.createdAt || '—'}</li>
                             <li>{r.description}</li>
                             <li>{r.section || ''}</li>
-                            <li>{r.location || ''}</li>
+                            <li>{r.location ? (<a href={googleMapsLink(r.location)} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{r.location}</a>) : ''}</li>
                           </ul>
                         </div>
                       ))}
@@ -381,7 +420,7 @@ export default function MyDashboard() {
                             <li>{r.createdAt || '—'}</li>
                             <li>{r.description}</li>
                             <li>{r.section || ''}</li>
-                            <li>{r.location || ''}</li>
+                            <li>{r.location ? (<a href={googleMapsLink(r.location)} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{r.location}</a>) : ''}</li>
                           </ul>
                         </div>
                       ))}
@@ -398,52 +437,69 @@ export default function MyDashboard() {
                 <div>
                   <h2 className="text-white text-lg mb-3">My Items</h2>
                   {myOutbound.length ? (
-                    <ul className="space-y-2">
-                      {myOutbound.map(i => (
-                        <li
-                          key={i.id}
-                          className="text-sm text-gray-300 cursor-pointer hover:text-white"
-                          onClick={async () => {
-                            if (!user) return
-                            const form = i.form_id ? forms.find(f => f.id === i.form_id) : forms.find(f => f.name === i.name && f.kind === 'Outbound')
-                            if (!form) return
-                            let tasks: { sub_task_id: string; description: string; status: 'Pending' }[] = []
-                            try {
-                              const progress = await getProgressByMember(user.user_id)
-                              const pendingSet = new Set(progress.progress_tasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
-                              tasks = form.task_ids
-                                .filter(tid => pendingSet.has(tid))
-                                .map(tid => ({
-                                  sub_task_id: tid,
-                                  description: `${(taskLabels[tid]?.section_name ? taskLabels[tid]?.section_name + ' - ' : '')}${(taskLabels[tid]?.description || tid)}`,
-                                  status: 'Pending' as const,
-                                }))
-                            } catch {}
-                            if (tasks.length === 0) {
-                              tasks = form.task_ids.map(tid => ({
-                                sub_task_id: tid,
-                                description: `${(taskLabels[tid]?.section_name ? taskLabels[tid]?.section_name + ' - ' : '')}${(taskLabels[tid]?.description || tid)}`,
-                                status: 'Pending' as const,
-                              }))
-                            }
-                            const preview: MyFormSubmission = {
-                              id: Date.now(),
-                              user_id: user.user_id,
-                              unit_id: user.unit_id,
-                              form_id: form.id,
-                              form_name: form.name,
-                              kind: 'Outbound',
-                              created_at: new Date().toISOString(),
-                              member: { edipi: user.edipi, rank: user.rank, first_name: user.first_name, last_name: user.last_name, company_id: user.company_id, platoon_id: user.platoon_id },
-                              tasks,
-                            }
-                            setSubmissionPreview(preview)
-                          }}
-                        >
-                          {i.name}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="mt-4">
+                      <div className="grid grid-cols-4 text-gray-400 text-sm mb-2">
+                        <div className="text-left p-2">Form</div>
+                        <div className="text-left p-2">Unit</div>
+                        <div className="text-left p-2">Created</div>
+                        <div className="text-left p-2">Action</div>
+                      </div>
+                      <table className="min-w-full text-sm">
+                        <tbody>
+                          {myOutbound.map(i => (
+                            <tr key={`out-${i.id}`} className="border-t border-github-border text-gray-300">
+                              <td className="p-2">{i.name}</td>
+                              <td className="p-2">{user?.unit_id || ''}</td>
+                              <td className="p-2">{new Date(i.created_at).toLocaleString()}</td>
+                              <td className="p-2">
+                                <button
+                                  className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                                  onClick={async () => {
+                                    if (!user) return
+                                    const form = i.form_id ? forms.find(f => f.id === i.form_id) : forms.find(f => f.name === i.name && f.kind === 'Outbound')
+                                    if (!form) return
+                                    let tasks: { sub_task_id: string; description: string; status: 'Pending' }[] = []
+                                    try {
+                                      const progress = await getProgressByMember(user.user_id)
+                                      const pendingSet = new Set(progress.progress_tasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
+                                      tasks = form.task_ids
+                                        .filter(tid => pendingSet.has(tid))
+                                        .map(tid => ({
+                                          sub_task_id: tid,
+                                          description: `${(taskLabels[tid]?.section_name ? taskLabels[tid]?.section_name + ' - ' : '')}${(taskLabels[tid]?.description || tid)}`,
+                                          status: 'Pending' as const,
+                                        }))
+                                    } catch {}
+                                    if (tasks.length === 0) {
+                                      tasks = form.task_ids.map(tid => ({
+                                        sub_task_id: tid,
+                                        description: `${(taskLabels[tid]?.section_name ? taskLabels[tid]?.section_name + ' - ' : '')}${(taskLabels[tid]?.description || tid)}`,
+                                        status: 'Pending' as const,
+                                      }))
+                                    }
+                                    const preview: MyFormSubmission = {
+                                      id: Date.now(),
+                                      user_id: user.user_id,
+                                      unit_id: selectedUnit || user.unit_id,
+                                      form_id: form.id,
+                                      form_name: form.name,
+                                      kind: 'Outbound',
+                                      created_at: new Date().toISOString(),
+                                      member: { edipi: user.edipi, rank: user.rank, first_name: user.first_name, last_name: user.last_name, company_id: user.company_id, platoon_id: user.platoon_id },
+                                      tasks,
+                                    }
+                                    ;(preview as any).departure_date = departureDate || new Date().toISOString().slice(0,10)
+                                    setSubmissionPreview(preview)
+                                  }}
+                                >
+                                  View
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ) : (
                     <p className="text-gray-400 text-sm">No outbound items</p>
                   )}
@@ -487,10 +543,21 @@ export default function MyDashboard() {
                   setNewKind(k)
                   const first = forms.filter(f => f.kind === k)[0]
                   setSelectedFormId(first ? first.id : null)
+                  if (k === 'Inbound') { setArrivalDate(new Date().toISOString().slice(0,10)); setDepartureDate('') } else { setDepartureDate(new Date().toISOString().slice(0,10)); setArrivalDate('') }
                 }} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
                   <option value="Inbound">Inbound</option>
                   <option value="Outbound">Outbound</option>
                 </select>
+                <select value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                  <option value="">Select unit</option>
+                  {unitOptions.map(o => (<option key={o.id} value={o.id}>{o.name}</option>))}
+                </select>
+                {newKind === 'Inbound' && (
+                  <input type="date" value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                )}
+                {newKind === 'Outbound' && (
+                  <input type="date" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                )}
                 <select value={selectedFormId ?? ''} onChange={e => setSelectedFormId(Number(e.target.value) || null)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
                   <option value="">Select form</option>
                   {forms.filter(f => f.kind === newKind).map(f => (
@@ -501,9 +568,15 @@ export default function MyDashboard() {
                   {(() => {
                     const form = forms.find(f => f.id === selectedFormId)
                     if (!form) return null
-                    return form.task_ids.map(tid => (
-                      <div key={tid} className="text-sm text-gray-300">{tid}</div>
-                    ))
+                    return form.task_ids.map(tid => {
+                      const label = taskLabels[tid]
+                      const secCode = label?.section_name || ''
+                      const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                      const text = [secName, (label?.description || tid)].filter(Boolean).join(' - ')
+                      return (
+                        <div key={tid} className="text-sm text-gray-300">{text}</div>
+                      )
+                    })
                   })()}
                 </div>
               </div>
@@ -532,6 +605,8 @@ export default function MyDashboard() {
               <div className="grid grid-cols-2 gap-3 text-sm text-gray-300">
                 <div><span className="text-gray-400">EDIPI:</span> {submissionPreview.member.edipi}</div>
                 <div><span className="text-gray-400">Unit:</span> {submissionPreview.unit_id}</div>
+                {submissionPreview.kind === 'Inbound' && (<div><span className="text-gray-400">Arrival:</span> {(submissionPreview as any).arrival_date || ''}</div>)}
+                {submissionPreview.kind === 'Outbound' && (<div><span className="text-gray-400">Departure:</span> {(submissionPreview as any).departure_date || ''}</div>)}
                 <div className="col-span-2"><span className="text-gray-400">Member:</span> {[submissionPreview.member.rank, [submissionPreview.member.first_name, submissionPreview.member.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ')}</div>
                 <div><span className="text-gray-400">Company:</span> {submissionPreview.member.company_id || ''}</div>
                 <div><span className="text-gray-400">Section:</span> {sectionDisplay || submissionPreview.member.platoon_id || ''}</div>

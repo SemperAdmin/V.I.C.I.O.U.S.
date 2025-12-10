@@ -71,7 +71,7 @@ export default function HeaderTools() {
               )}
               {(normalizeOrgRole(getRoleOverride(user?.user_id || '')?.org_role) === 'Unit_Admin' || normalizeOrgRole(user?.org_role) === 'Unit_Admin' || isAssignedUnitAdmin) && (
                 <button onMouseDown={() => { setOpen(false); navigate('/unit-admin') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
-                  <ListChecks className="w-5 h-5 mr-2" />
+                  <Shield className="w-5 h-5 mr-2" />
                   Unit Admin
                 </button>
               )}
@@ -106,14 +106,7 @@ export default function HeaderTools() {
         ]
           .filter(Boolean)
           .join(' ')}
-        {(() => {
-          const company = user?.company_id
-          const section = sectionLabel
-          if (company || section) {
-            return ` — ${[company, section].filter(Boolean).join(' - ')}`
-          }
-          return ''
-        })()}
+        {sectionLabel ? ` | ${sectionLabel}` : ''}
       </span>
       
     </div>

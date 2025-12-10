@@ -19,6 +19,7 @@ export type UnitSubTask = {
   description: string
   responsible_user_ids: string[]
   location?: string
+  map_url?: string
   instructions?: string
   completion_kind?: 'Text' | 'Date' | 'Options'
   completion_label?: string
@@ -109,6 +110,7 @@ export const updateSubTask = async (id: number, patch: Partial<UnitSubTask>): Pr
   const allowed = {
     description: patch.description,
     location: patch.location,
+    map_url: (patch as any).map_url,
     instructions: patch.instructions,
     responsible_user_ids: patch.responsible_user_ids,
     sub_task_id: patch.sub_task_id,
