@@ -23,6 +23,12 @@ export type MyFormSubmission = {
     platoon_id?: string
   }
   tasks: MyFormSubmissionTask[]
+  arrival_date?: string
+  departure_date?: string
+  task_ids?: string[]
+  completed_count?: number
+  total_count?: number
+  status?: 'In_Progress' | 'Completed'
 }
 
 const KEY = 'my_form_submissions'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, User, Bell, Palette, Shield, Save } from 'lucide-react'
+import { ArrowLeft, User, Bell, Palette, Shield } from 'lucide-react'
 import HeaderTools from '@/components/HeaderTools'
 import BrandMark from '@/components/BrandMark'
 import { listCompanies, listSections } from '@/utils/unitStructure'
@@ -11,8 +11,7 @@ import '@/js/military-data.js'
  
 import { useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
-import { getRoleOverride, setUserRoleOverride } from '@/utils/localUsersStore'
-import { normalizeOrgRole } from '@/utils/roles'
+import { getRoleOverride } from '@/utils/localUsersStore'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -26,9 +25,7 @@ export default function Settings() {
   const [unitId, setUnitId] = useState(user?.unit_id || '')
   const [companyId, setCompanyId] = useState(user?.company_id || '')
   const [platoonId, setPlatoonId] = useState(user?.platoon_id || '')
-  const [role, setRole] = useState<'Unit_Admin' | 'Section_Manager' | 'Member'>(
-    (normalizeOrgRole(getRoleOverride(user?.user_id || '')?.org_role) as any) || (normalizeOrgRole(user?.org_role) as any) || 'Member'
-  )
+  // Role override UI removed; users are Members by default unless changed by admins
   const [companyOptions, setCompanyOptions] = useState<Array<{ id: string; name: string }>>([])
   const [sectionOptions, setSectionOptions] = useState<Array<{ id: string; name: string }>>([])
   const [newPassword, setNewPassword] = useState('')
@@ -120,7 +117,6 @@ export default function Settings() {
         <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl">
           <div className="flex border-b border-github-border">
             <button onClick={() => setActiveTab('profile')} className={`px-4 py-3 text-sm ${activeTab==='profile'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Profile</button>
-            <button onClick={() => setActiveTab('appearance')} className={`px-4 py-3 text-sm ${activeTab==='appearance'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Appearance</button>
             <button onClick={() => setActiveTab('notifications')} className={`px-4 py-3 text-sm ${activeTab==='notifications'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Notifications</button>
             <button onClick={() => setActiveTab('editor')} className={`px-4 py-3 text-sm ${activeTab==='editor'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Editor</button>
             <button onClick={() => setActiveTab('password')} className={`px-4 py-3 text-sm ${activeTab==='password'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Password</button>
@@ -130,13 +126,13 @@ export default function Settings() {
               <div>
                 <div className="flex items-center mb-6">
                   <User className="w-6 h-6 text-github-blue mr-3" />
-                  <h2 className="text-xl font-semibold text-white">Profile</h2>
+                  <h2 className="text-xl font-semibold text-white">Profile | {user?.edipi || ''}</h2>
                 </div>
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">EDIPI</label>
-                      <input value={user?.edipi || ''} disabled className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white" />
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Last Name</label>
+                      <input value={lastName} onChange={e => setLastName(e.target.value)} className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">First Name</label>
@@ -145,10 +141,6 @@ export default function Settings() {
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">Middle Initial</label>
                       <input value={middleInitial} onChange={e => setMiddleInitial(e.target.value)} className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Last Name</label>
-                      <input value={lastName} onChange={e => setLastName(e.target.value)} className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white" />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -183,18 +175,7 @@ export default function Settings() {
                       <label className="block text-sm font-medium text-gray-300 mb-1">MOS</label>
                       <input value={mos} onChange={e => setMos(e.target.value)} className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white" />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Role (local override)</label>
-                      <select
-                        value={role}
-                        onChange={e => setRole(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white"
-                      >
-                        <option value="Unit_Admin">Unit_Admin</option>
-                        <option value="Section_Manager">Section_Manager</option>
-                        <option value="Member">Member</option>
-                      </select>
-                    </div>
+                    
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
@@ -241,7 +222,7 @@ export default function Settings() {
                           mos: mos || user?.mos || '',
                           company_id: companyId || undefined,
                           platoon_id: platoonId || undefined,
-                          org_role: role,
+                          
                         }
                         try {
                           if (import.meta.env.VITE_USE_SUPABASE === '1') {
@@ -249,7 +230,7 @@ export default function Settings() {
                           }
                           const updated = { ...user, ...patch, updated_at_timestamp: new Date().toISOString() }
                           login(updated as any)
-                          if (user?.user_id) setUserRoleOverride(user.user_id, role)
+                          
                           alert('Profile updated')
                         } catch (e: any) {
                           alert(e?.message || 'Failed to update profile')
@@ -396,15 +377,7 @@ export default function Settings() {
 
           
           
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={handleSave}
-              className="flex items-center px-6 py-2 bg-github-blue hover:bg-blue-600 text-white rounded-lg transition-colors"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save Settings
-            </button>
-          </div>
+          
        </main>
     </div>
   )

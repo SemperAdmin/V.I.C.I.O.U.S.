@@ -110,7 +110,7 @@ export const updateSubTask = async (id: number, patch: Partial<UnitSubTask>): Pr
   const allowed = {
     description: patch.description,
     location: patch.location,
-    map_url: (patch as any).map_url,
+    map_url: patch.map_url,
     instructions: patch.instructions,
     responsible_user_ids: patch.responsible_user_ids,
     sub_task_id: patch.sub_task_id,

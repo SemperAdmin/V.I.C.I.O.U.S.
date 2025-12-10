@@ -43,6 +43,7 @@ export default function TaskManagerDashboard() {
   const [newLocationUrl, setNewLocationUrl] = useState('')
   const [newInstructions, setNewInstructions] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (!user || !user.unit_id) return
@@ -89,7 +90,7 @@ export default function TaskManagerDashboard() {
           displayMap[s.section_name] = disp
           displayMap[String(s.id)] = disp
         }
-      } catch {}
+      } catch (err) { console.error(err) }
       setSectionDisplayMap(displayMap)
       // Resolve user's section and load tasks from Supabase unit_sub_tasks
       let sectionTaskIds = new Set<string>()
@@ -113,7 +114,7 @@ export default function TaskManagerDashboard() {
             subTaskById[t.sub_task_id] = t
           }
         }
-      } catch {}
+      } catch (err) { console.error(err) }
       setSubTaskMap(subTaskById)
       // Determine form-kind task id sets
       const ruc = (user.unit_id || '').includes('-') ? (user.unit_id || '').split('-')[1] : (user.unit_id || '')
@@ -123,7 +124,7 @@ export default function TaskManagerDashboard() {
         const forms = await listForms(ruc)
         inboundTaskIds = new Set(forms.filter(f => f.kind === 'Inbound').flatMap(f => f.task_ids))
         outboundTaskIds = new Set(forms.filter(f => f.kind === 'Outbound').flatMap(f => f.task_ids))
-      } catch {}
+      } catch (err) { console.error(err) }
       const sectionMembers = Object.values(profiles).filter(p => p.unit_id === user.unit_id && (!!user.platoon_id ? String(p.platoon_id) === String(user.platoon_id) : true))
       const sectionEdipis = new Set(sectionMembers.map(p => p.edipi))
       setDefaultResponsible(Array.from(sectionEdipis))
@@ -154,7 +155,7 @@ export default function TaskManagerDashboard() {
             const canon = canonicalize(seeded)
             const sha = await sha256String(canon)
             seeded.current_file_sha = sha
-            try { await sbUpsertProgress(seeded as any) } catch {}
+            try { await sbUpsertProgress(seeded as any) } catch (err) { console.error(err) }
           }
         }
         for (const t of progress.progress_tasks) {
@@ -285,9 +286,22 @@ export default function TaskManagerDashboard() {
                   const title = `${secDisplay} - ${label?.description || subTaskId}`
                   return (
                     <div key={subTaskId} className="border border-github-border rounded-xl">
-                      <div className="px-4 py-3 border-b border-github-border">
+                      <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
                         <h3 className="text-white text-sm">{title}</h3>
+                        <button
+                          className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs hover:bg-opacity-30"
+                          onClick={() => setDetailsOpen(prev => ({ ...prev, [subTaskId]: !prev[subTaskId] }))}
+                        >
+                          Details
+                        </button>
                       </div>
+                      {detailsOpen[subTaskId] && (
+                        <div className="px-4 py-3 text-sm text-gray-300 border-b border-github-border">
+                          <div><span className="text-gray-400">Location:</span> {subTaskMap[subTaskId]?.location ? (<a href={subTaskMap[subTaskId]?.map_url || googleMapsLink(subTaskMap[subTaskId]!.location!)} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{subTaskMap[subTaskId]!.location}</a>) : ''}</div>
+                          <div className="mb-1"><span className="text-gray-400">Instructions:</span> {subTaskMap[subTaskId]?.instructions || ''}</div>
+                          <div className="mt-1"><span className="text-gray-400">Completion:</span> {[subTaskMap[subTaskId]?.completion_kind, subTaskMap[subTaskId]?.completion_label, (subTaskMap[subTaskId]?.completion_options || []).join('/')].filter(Boolean).join(' • ')}</div>
+                        </div>
+                      )}
                       <div className="p-4">
                         <table className="min-w-full text-sm">
                           <thead className="text-gray-400">
@@ -306,10 +320,14 @@ export default function TaskManagerDashboard() {
                               const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
                               const edipi = m?.edipi || mid
                               const company = m?.company_id || ''
-                              const secKey = m?.platoon_id ? String(m.platoon_id) : ''
-                              const secLabel = sectionDisplayMap[secKey] || secKey || ''
-                              const key = `${subTaskId}:${mid}`
                               const tdef = subTaskMap[subTaskId]
+                              const secKey = m?.platoon_id ? String(m.platoon_id) : ''
+                              let secLabel = sectionDisplayMap[secKey] || secKey || ''
+                              if (tdef?.section_id) {
+                                const sKey = String(tdef.section_id)
+                                secLabel = sectionDisplayMap[sKey] || secLabel
+                              }
+                              const key = `${subTaskId}:${mid}`
                               const kind = tdef?.completion_kind || ''
                               const opts = tdef?.completion_options || []
                               const current = completionSelections[key]
@@ -447,9 +465,22 @@ export default function TaskManagerDashboard() {
                   const title = `${secDisplay} - ${label?.description || subTaskId}`
                   return (
                     <div key={subTaskId} className="border border-github-border rounded-xl">
-                      <div className="px-4 py-3 border-b border-github-border">
+                      <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
                         <h3 className="text-white text-sm">{title}</h3>
+                        <button
+                          className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs hover:bg-opacity-30"
+                          onClick={() => setDetailsOpen(prev => ({ ...prev, [subTaskId]: !prev[subTaskId] }))}
+                        >
+                          Details
+                        </button>
                       </div>
+                      {detailsOpen[subTaskId] && (
+                        <div className="px-4 py-3 text-sm text-gray-300 border-b border-github-border">
+                          <div><span className="text-gray-400">Location:</span> {subTaskMap[subTaskId]?.location ? (<a href={subTaskMap[subTaskId]?.map_url || googleMapsLink(subTaskMap[subTaskId]!.location!)} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{subTaskMap[subTaskId]!.location}</a>) : ''}</div>
+                          <div className="mb-1"><span className="text-gray-400">Instructions:</span> {subTaskMap[subTaskId]?.instructions || ''}</div>
+                          <div className="mt-1"><span className="text-gray-400">Completion:</span> {[subTaskMap[subTaskId]?.completion_kind, subTaskMap[subTaskId]?.completion_label, (subTaskMap[subTaskId]?.completion_options || []).join('/')].filter(Boolean).join(' • ')}</div>
+                        </div>
+                      )}
                       <div className="p-4">
                         <table className="min-w-full text-sm">
                           <thead className="text-gray-400">
@@ -517,8 +548,8 @@ export default function TaskManagerDashboard() {
                             <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} placeholder="Location" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                             <input value={taskEditLocationUrl} onChange={e => setTaskEditLocationUrl(e.target.value)} placeholder="Map URL" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                           </div>
-                        ) : ((t as any).map_url || t.location ? (
-                          <a href={((t as any).map_url || googleMapsLink(t.location || ''))} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{t.location || 'Map'}</a>
+                        ) : (t.map_url || t.location ? (
+                          <a href={(t.map_url || googleMapsLink(t.location || ''))} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{t.location || 'Map'}</a>
                         ) : '')}</td>
                         <td className="p-2">{taskEditingId === t.id ? (
                           <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
@@ -561,7 +592,7 @@ export default function TaskManagerDashboard() {
                             </>
                           ) : (
                             <>
-                              <button onClick={() => { setTaskEditingId(t.id); setTaskEditDescription(t.description || ''); setTaskEditLocation(t.location || ''); setTaskEditLocationUrl((t as any).map_url || ''); setTaskEditInstructions(t.instructions || ''); setTaskEditCompletionKind(t.completion_kind || ''); setTaskEditCompletionLabel(t.completion_label || ''); setTaskEditCompletionOptions((t.completion_options || []).join(', ')) }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Edit</button>
+                              <button onClick={() => { setTaskEditingId(t.id); setTaskEditDescription(t.description || ''); setTaskEditLocation(t.location || ''); setTaskEditLocationUrl(t.map_url || ''); setTaskEditInstructions(t.instructions || ''); setTaskEditCompletionKind(t.completion_kind || ''); setTaskEditCompletionLabel(t.completion_label || ''); setTaskEditCompletionOptions((t.completion_options || []).join(', ')) }} className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded">Edit</button>
                               <button onClick={async () => { await deleteSubTask(t.id); const unitKey = (user!.unit_id || '').includes('-') ? (user!.unit_id as string).split('-')[1] : (user!.unit_id as string); const refreshed = await listSubTasks(unitKey); setScopedSubTasks(refreshed.filter(x => String(x.section_id) === String(mySectionId))) }} className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded">Remove</button>
                             </>
                           )}
