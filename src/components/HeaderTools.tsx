@@ -1,4 +1,4 @@
-import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck } from 'lucide-react'
+import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck, Building2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useEffect, useState } from 'react'
@@ -74,6 +74,12 @@ export default function HeaderTools() {
                 <button onMouseDown={() => { setOpen(false); navigate('/unit-admin') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <Shield className="w-5 h-5 mr-2" />
                   Unit Admin
+                </button>
+              )}
+              {(normalizeOrgRole(getRoleOverride(user?.user_id || '')?.org_role) === 'Company_Manager' || normalizeOrgRole(user?.org_role) === 'Company_Manager') && (
+                <button onMouseDown={() => { setOpen(false); navigate('/company-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
+                  <Building2 className="w-5 h-5 mr-2" />
+                  Company Manager
                 </button>
               )}
               {(normalizeOrgRole(getRoleOverride(user?.user_id || '')?.org_role) === 'Section_Manager' || normalizeOrgRole(user?.org_role) === 'Section_Manager') && (
