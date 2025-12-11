@@ -260,26 +260,30 @@ export default function UnitAdminDashboard() {
           </div>
         </div>
       </header>
-      {adminRucs.length > 1 && (
+      {adminRucs.length > 0 && (
         <div className="bg-github-gray bg-opacity-5 border-b border-github-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center gap-4">
               <label className="text-sm font-medium text-gray-300">Managing RUC:</label>
-              <select
-                value={managedRuc}
-                onChange={(e) => {
-                  const newRuc = e.target.value
-                  setManagedRuc(newRuc)
-                  localStorage.setItem('selectedAdminRuc', newRuc)
-                }}
-                className="bg-github-gray border border-github-border text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-github-blue"
-              >
-                {adminRucs.map((ruc) => (
-                  <option key={ruc.ruc} value={ruc.ruc}>
-                    RUC {ruc.ruc} - {ruc.unit_name}
-                  </option>
-                ))}
-              </select>
+              {adminRucs.length === 1 ? (
+                <span className="text-white text-sm">RUC {adminRucs[0].ruc} - {adminRucs[0].unit_name}</span>
+              ) : (
+                <select
+                  value={managedRuc}
+                  onChange={(e) => {
+                    const newRuc = e.target.value
+                    setManagedRuc(newRuc)
+                    localStorage.setItem('selectedAdminRuc', newRuc)
+                  }}
+                  className="bg-github-gray border border-github-border text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-github-blue"
+                >
+                  {adminRucs.map((ruc) => (
+                    <option key={ruc.ruc} value={ruc.ruc}>
+                      RUC {ruc.ruc} - {ruc.unit_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>
@@ -1043,6 +1047,10 @@ export default function UnitAdminDashboard() {
                                         kind: just.kind,
                                         member: { edipi: p.edipi, rank: p.rank, first_name: p.first_name, last_name: p.last_name, company_id: p.company_id, platoon_id: p.platoon_id },
                                         tasks,
+                                        task_ids: just.task_ids,
+                                        completed_count: 0,
+                                        total_count: (just.task_ids || []).length,
+                                        status: 'In_Progress' as const,
                                         arrival_date: just.kind === 'Inbound' ? new Date().toISOString().slice(0,10) : undefined,
                                         departure_date: just.kind === 'Outbound' ? new Date().toISOString().slice(0,10) : undefined,
                                       }
