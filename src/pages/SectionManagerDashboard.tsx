@@ -8,6 +8,7 @@ import { listPendingForSectionManager, listArchivedForUser } from '@/services/lo
 import { getRoleOverride } from '@/utils/localUsersStore'
 import { normalizeOrgRole, normalizeSectionRole } from '@/utils/roles'
 import { listSections } from '@/utils/unitStructure'
+import { MyFormSubmission, MyFormSubmissionTask } from '@/utils/myFormSubmissionsStore'
 
 
 export default function SectionManagerDashboard() {
@@ -35,17 +36,17 @@ export default function SectionManagerDashboard() {
   const handleViewDetails = async (
     row: { user_id: string; form_name: string; kind: 'Inbound' | 'Outbound'; created_at?: string },
     member: LocalUserProfile | undefined,
-    submission: any
+    submission: MyFormSubmission | undefined
   ) => {
     // Use form-scoped task status from the submission
-    const submissionTasks = submission?.tasks || []
-    const pendingSet = new Set(submissionTasks.filter((t: any) => t.status !== 'Cleared').map((t: any) => t.sub_task_id))
-    const completedSet = new Set(submissionTasks.filter((t: any) => t.status === 'Cleared').map((t: any) => t.sub_task_id))
+    const submissionTasks: MyFormSubmissionTask[] = submission?.tasks || []
+    const pendingSet = new Set(submissionTasks.filter(t => t.status !== 'Cleared').map(t => t.sub_task_id))
+    const completedSet = new Set(submissionTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
     const formName = row.form_name
     const kind = row.kind
     const createdAt = row.created_at || ''
     const memberData = { edipi: member?.edipi || '', rank: member?.rank, first_name: member?.first_name, last_name: member?.last_name, company_id: member?.company_id, platoon_id: member?.platoon_id }
-    const tasksIds = submissionTasks.map((t: any) => t.sub_task_id)
+    const tasksIds = submissionTasks.map(t => t.sub_task_id)
     const pendingBySection: Record<string, string[]> = {}
     const allSectionNames = new Set<string>()
     for (const tid of tasksIds) {
@@ -71,6 +72,7 @@ export default function SectionManagerDashboard() {
       const label = taskLabels[tid]
       const code = label?.section_name || ''
       const secName = code ? (sectionDisplayMap[code] || code) : ''
+      // Note: progress_tasks type is missing 'logs' property definition, but it exists at runtime
       const entry = (progress.progress_tasks || []).find(t => String(t.sub_task_id) === String(tid)) as any
       const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
       completedRows.push({ section: secName, task: (label?.description || tid), note: lastLog?.note, at: lastLog?.at })

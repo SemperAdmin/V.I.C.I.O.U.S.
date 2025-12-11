@@ -24,9 +24,9 @@ export const sbGetAdminRucs = async (admin_edipi: string): Promise<Array<{ ruc: 
     .eq('admin_user_id', admin_edipi)
   if (error) throw error
   const rows = (data as any) || []
-  // Get unique RUCs
-  const uniqueRucs = Array.from(new Set(rows.map((row: any) => row.ruc).filter(Boolean)))
-  return uniqueRucs.map(ruc => ({ ruc: String(ruc) }))
+  // Get unique RUCs using modern spread syntax
+  const uniqueRucs = [...new Set(rows.map((row: { ruc: string | null }) => row.ruc).filter(Boolean) as string[])]
+  return uniqueRucs.map(ruc => ({ ruc }))
 }
 
 export const sbGetAdminAssignments = async (admin_edipi: string, ruc: string): Promise<string[]> => {
