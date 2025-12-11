@@ -189,6 +189,7 @@ export default function MyDashboard() {
       tasks,
       arrival_date: kind === 'Inbound' ? (((latest as any)?.arrival_date) || (arrivalDate || new Date().toISOString().slice(0,10))) : undefined,
       departure_date: kind === 'Outbound' ? (((latest as any)?.departure_date) || (departureDate || new Date().toISOString().slice(0,10))) : undefined,
+      destination_unit_id: kind === 'Outbound' ? ((latest as any)?.destination_unit_id || '') : undefined,
     }
     return preview
   }
