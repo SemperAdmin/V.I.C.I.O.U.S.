@@ -24,7 +24,7 @@ export default function UnitAdminDashboard() {
   const [forms, setForms] = useState<UnitForm[]>([])
   const [newSectionName, setNewSectionName] = useState('')
   const [newTask, setNewTask] = useState({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', instructions: '' })
-  const [adminRucs, setAdminRucs] = useState<Array<{ ruc: string; unit_name: string }>>([])
+  const [adminRucs, setAdminRucs] = useState<Array<{ ruc: string }>>([])
   const getInitialRuc = () => {
     const stored = localStorage.getItem('selectedAdminRuc')
     if (stored) return stored
@@ -266,7 +266,7 @@ export default function UnitAdminDashboard() {
             <div className="flex items-center gap-4">
               <label className="text-sm font-medium text-gray-300">Managing RUC:</label>
               {adminRucs.length === 1 ? (
-                <span className="text-white text-sm">RUC {adminRucs[0].ruc} - {adminRucs[0].unit_name}</span>
+                <span className="text-white text-sm font-semibold">{adminRucs[0].ruc}</span>
               ) : (
                 <select
                   value={managedRuc}
@@ -279,11 +279,12 @@ export default function UnitAdminDashboard() {
                 >
                   {adminRucs.map((ruc) => (
                     <option key={ruc.ruc} value={ruc.ruc}>
-                      RUC {ruc.ruc} - {ruc.unit_name}
+                      {ruc.ruc}
                     </option>
                   ))}
                 </select>
               )}
+              <span className="text-gray-400 text-xs">Use tabs below to manage all units under this RUC</span>
             </div>
           </div>
         </div>

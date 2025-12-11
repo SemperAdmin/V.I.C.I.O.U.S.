@@ -16,22 +16,17 @@ export const sbListUnitAdmins = async (): Promise<Array<{ unit_key: string; unit
   return (data as any) || []
 }
 
-export const sbGetAdminRucs = async (admin_edipi: string): Promise<Array<{ ruc: string; unit_name: string }>> => {
+export const sbGetAdminRucs = async (admin_edipi: string): Promise<Array<{ ruc: string }>> => {
   if (!isSupabaseConfigured()) return []
   const { data, error } = await supabase
     .from('unit_admins')
-    .select('ruc,unit_name')
+    .select('ruc')
     .eq('admin_user_id', admin_edipi)
   if (error) throw error
   const rows = (data as any) || []
   // Get unique RUCs
-  const rucMap = new Map<string, string>()
-  rows.forEach((row: any) => {
-    if (row.ruc && !rucMap.has(row.ruc)) {
-      rucMap.set(row.ruc, row.unit_name || row.ruc)
-    }
-  })
-  return Array.from(rucMap.entries()).map(([ruc, unit_name]) => ({ ruc, unit_name }))
+  const uniqueRucs = Array.from(new Set(rows.map((row: any) => row.ruc).filter(Boolean)))
+  return uniqueRucs.map(ruc => ({ ruc: String(ruc) }))
 }
 
 export const sbGetAdminAssignments = async (admin_edipi: string, ruc: string): Promise<string[]> => {
