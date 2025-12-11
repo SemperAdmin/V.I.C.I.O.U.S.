@@ -634,11 +634,11 @@ export default function CompanyManagerDashboard() {
                     </thead>
                     <tbody>
                       {companyMembers.map(member => {
-                        const effectiveRole = getRoleOverride(member.edipi || '')?.org_role || normalizeOrgRole(member.org_role) || 'Member'
+                        const effectiveRole = (member.edipi && getRoleOverride(member.edipi)?.org_role) || normalizeOrgRole(member.org_role) || 'Member'
                         const name = [member.first_name, member.last_name].filter(Boolean).join(' ')
                         const sectionLabel = sectionDisplayMap[String(member.platoon_id || '')] || member.platoon_id || ''
                         return (
-                          <tr key={member.edipi || member.user_id} className="border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
+                          <tr key={member.user_id} className="border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                             <td className="p-2 truncate">{[member.rank, name].filter(Boolean).join(' ')}</td>
                             <td className="p-2 hidden sm:table-cell">{member.edipi || ''}</td>
                             <td className="p-2">{sectionLabel}</td>
@@ -679,10 +679,12 @@ export default function CompanyManagerDashboard() {
                                 </div>
                               ) : (
                                 <button
-                                  className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                                  className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs disabled:opacity-50"
+                                  disabled={!member.edipi}
                                   onClick={() => {
-                                    setEditingMember(member.edipi || null)
-                                    const currentRole = getRoleOverride(member.edipi || '')?.org_role || normalizeOrgRole(member.org_role) || 'Member'
+                                    if (!member.edipi) return
+                                    setEditingMember(member.edipi)
+                                    const currentRole = getRoleOverride(member.edipi)?.org_role || normalizeOrgRole(member.org_role) || 'Member'
                                     setEditMemberRole(currentRole === 'Company_Manager' ? 'Company_Manager' : 'Member')
                                   }}
                                 >
