@@ -13,6 +13,17 @@ export default function Register() {
   const [searchParams] = useSearchParams()
   const { login } = useAuthStore()
   const returnUrl = searchParams.get('return') || '/dashboard'
+
+  // Extract RUC from return URL if coming from enrollment QR code
+  const enrollRuc = (() => {
+    try {
+      const url = new URL(returnUrl, window.location.origin)
+      if (url.pathname.includes('/enroll')) {
+        return url.searchParams.get('unit')
+      }
+    } catch {}
+    return null
+  })()
   const [edipi, setEdipi] = useState('')
   const [firstName, setFirstName] = useState('')
   const [middleInitial, setMiddleInitial] = useState('')
@@ -123,7 +134,13 @@ export default function Register() {
       try {
         const mod: any = await import('@/utils/units')
         const list = (mod.UNITS || mod.units || mod.default || mod.getAllUnits?.() || []) as any[]
-        const normalized = list.map((u: any, idx: number) => {
+
+        // Filter by RUC if coming from enrollment
+        const filteredList = enrollRuc
+          ? list.filter((u: any) => u.ruc === enrollRuc)
+          : list
+
+        const normalized = filteredList.map((u: any, idx: number) => {
           const uic = u.uic || ''
           const ruc = u.ruc || ''
           const mcc = u.mcc || ''
@@ -143,13 +160,19 @@ export default function Register() {
           const key = `${u.uic}|${u.ruc}|${u.mcc}`
           if (!unique.has(key)) unique.set(key, u)
         }
-        setUnits(Array.from(unique.values()))
+        const unitList = Array.from(unique.values())
+        setUnits(unitList)
+
+        // Auto-select first unit if filtered by RUC
+        if (enrollRuc && unitList.length > 0 && !unitId) {
+          setUnitId(unitList[0].id)
+        }
       } catch {
         setUnits([])
       }
     }
     loadUnits()
-  }, [])
+  }, [enrollRuc])
 
   useEffect(() => {
     const loadStructure = async () => {

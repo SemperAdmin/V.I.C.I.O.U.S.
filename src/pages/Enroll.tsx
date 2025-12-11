@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { listForms, UnitForm } from '@/utils/formsStore'
 import { listSubTasks } from '@/utils/unitTasks'
 import { createSubmission } from '@/utils/myFormSubmissionsStore'
-import { sbCreateSubmission } from '@/services/supabaseDataService'
+import { sbCreateSubmission, sbUpdateUser } from '@/services/supabaseDataService'
 import BrandMark from '@/components/BrandMark'
 import { UNITS } from '@/utils/units'
 
@@ -18,7 +18,7 @@ type UnitOption = {
 export default function Enroll() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, login } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [form, setForm] = useState<UnitForm | null>(null)
@@ -127,9 +127,15 @@ export default function Enroll() {
 
       if (import.meta.env.VITE_USE_SUPABASE === '1') {
         await sbCreateSubmission(submission as any)
+        // Update user's unit in database
+        await sbUpdateUser(user.user_id, { unit_id: selectedUnitId })
       } else {
         await createSubmission(submission as any)
       }
+
+      // Update user's unit in local state
+      const updatedUser = { ...user, unit_id: selectedUnitId }
+      login(updatedUser)
 
       // Redirect to dashboard
       navigate('/my-dashboard')
