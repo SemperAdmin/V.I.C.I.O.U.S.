@@ -666,7 +666,7 @@ export default function SectionManagerDashboard() {
                                 <div className="flex items-center gap-2">
                                   <select
                                     value={editMemberRole}
-                                    onChange={e => setEditMemberRole(e.target.value as any)}
+                                    onChange={e => setEditMemberRole(e.target.value as 'Section_Manager' | 'Member')}
                                     className="px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white"
                                   >
                                     <option value="Section_Manager">Section Manager</option>
@@ -676,10 +676,6 @@ export default function SectionManagerDashboard() {
                                     onClick={() => {
                                       if (p.edipi) {
                                         setUserRoleOverride(p.edipi, editMemberRole)
-                                        // Update local state to reflect change
-                                        setSectionMembers(prev => prev.map(m =>
-                                          m.edipi === p.edipi ? { ...m, org_role: editMemberRole } : m
-                                        ))
                                       }
                                       setEditingMember(null)
                                     }}
