@@ -12,6 +12,7 @@ import { getRoleOverride } from '@/utils/localUsersStore'
 import { googleMapsLink } from '@/utils/maps'
 import { normalizeOrgRole, normalizeSectionRole } from '@/utils/roles'
 import { sbListUsers, sbListMemberFormCompletion } from '@/services/supabaseDataService'
+import { sbListSubmissionsBySponsor } from '@/services/adminService'
 import { createSubmission, listSubmissions, MyFormSubmission } from '@/utils/myFormSubmissionsStore'
 import { sbUpsertProgress } from '@/services/supabaseDataService'
 import { supabase } from '@/services/supabaseClient'
@@ -26,7 +27,8 @@ export default function MyDashboard() {
   const [pendingSection, setPendingSection] = useState<{ member_user_id: string; sub_task_id: string }[]>([])
   const [mySubmissions, setMySubmissions] = useState<MyFormSubmission[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'inbound' | 'outbound'>('inbound')
+  const [activeTab, setActiveTab] = useState<'inbound' | 'outbound' | 'sponsees'>('inbound')
+  const [sponsees, setSponsees] = useState<MyFormSubmission[]>([])
   const [inboundView, setInboundView] = useState<'Pending' | 'Completed'>('Pending')
   const [outboundView, setOutboundView] = useState<'Pending' | 'Completed'>('Pending')
   const [createOpen, setCreateOpen] = useState(false)
@@ -252,6 +254,11 @@ export default function MyDashboard() {
         const subs = await listSubmissions(user.user_id)
         setMySubmissions(subs)
       } catch (err) { console.error(err) }
+      // Load sponsees (members this user is sponsoring)
+      try {
+        const sponseeSubmissions = await sbListSubmissionsBySponsor(user.edipi)
+        setSponsees(sponseeSubmissions)
+      } catch (err) { console.error(err) }
       const ruc = (user.unit_id || '').includes('-') ? (user.unit_id || '').split('-')[1] : (user.unit_id || '')
       const unitForms = await listForms(ruc)
       setForms(unitForms)
@@ -466,7 +473,9 @@ export default function MyDashboard() {
             <div className="flex">
               <button onClick={() => setActiveTab('inbound')} className={`px-4 py-3 text-sm ${activeTab==='inbound'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Inbound</button>
               <button onClick={() => setActiveTab('outbound')} className={`px-4 py-3 text-sm ${activeTab==='outbound'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Outbound</button>
-              
+              {sponsees.length > 0 && (
+                <button onClick={() => setActiveTab('sponsees')} className={`px-4 py-3 text-sm ${activeTab==='sponsees'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Sponsees ({sponsees.length})</button>
+              )}
             </div>
             <div>
               <button
@@ -1040,8 +1049,64 @@ export default function MyDashboard() {
                 
               </div>
             )}
-            
-            
+            {activeTab === 'sponsees' && (
+              <div className="space-y-6">
+                <h3 className="text-white text-lg">Members You Are Sponsoring</h3>
+                {sponsees.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs sm:text-sm">
+                      <thead className="text-gray-400">
+                        <tr>
+                          <th className="text-left p-2">Member</th>
+                          <th className="text-left p-2">EDIPI</th>
+                          <th className="text-left p-2 hidden sm:table-cell">Form</th>
+                          <th className="text-left p-2">Departure</th>
+                          <th className="text-left p-2">Progress</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sponsees.map((submission) => {
+                          const member = submission.member
+                          const memberName = [member?.rank, member?.first_name, member?.last_name].filter(Boolean).join(' ')
+                          const completed = typeof submission.completed_count === 'number' ? submission.completed_count : 0
+                          const total = typeof submission.total_count === 'number' ? submission.total_count : (submission.tasks?.length || 0)
+                          const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
+                          const isComplete = completed === total && total > 0
+
+                          return (
+                            <tr key={submission.id} className="border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
+                              <td className="p-2">
+                                <div>{memberName || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500 sm:hidden">{submission.form_name}</div>
+                              </td>
+                              <td className="p-2">{member?.edipi || ''}</td>
+                              <td className="p-2 hidden sm:table-cell">{submission.form_name}</td>
+                              <td className="p-2">{submission.departure_date || 'N/A'}</td>
+                              <td className="p-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-gray-700 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full ${isComplete ? 'bg-green-500' : 'bg-github-blue'}`}
+                                      style={{ width: `${progressPct}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-xs ${isComplete ? 'text-green-400' : 'text-gray-400'}`}>
+                                    {completed}/{total}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm">No members assigned to you</p>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
 

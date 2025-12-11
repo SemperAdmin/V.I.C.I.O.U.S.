@@ -203,3 +203,17 @@ export const sbListOutboundSubmissionsByDestinationRuc = async (ruc: string): Pr
   if (error) throw error
   return data || []
 }
+
+// Get submissions where the user is assigned as sponsor (for sponsor's view of their sponsees)
+export const sbListSubmissionsBySponsor = async (sponsor_edipi: string): Promise<any[]> => {
+  if (!isSupabaseConfigured()) return []
+
+  const { data, error } = await supabase
+    .from('my_form_submissions')
+    .select('*')
+    .eq('assigned_sponsor_edipi', sponsor_edipi)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
