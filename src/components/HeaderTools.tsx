@@ -1,10 +1,10 @@
-import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck, Building2, Users } from 'lucide-react'
+import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck, Building2, Users, HeartHandshake } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useEffect, useState } from 'react'
 import { getRoleOverride } from '@/utils/localUsersStore'
 import { normalizeOrgRole } from '@/utils/roles'
-import { sbListUnitAdmins } from '@/services/adminService'
+import { sbListUnitAdmins, sbGetCoordinatorRucs } from '@/services/adminService'
 import { listSections } from '@/utils/unitStructure'
 
 export default function HeaderTools() {
@@ -13,6 +13,7 @@ export default function HeaderTools() {
   const [open, setOpen] = useState(false)
   const [sectionLabel, setSectionLabel] = useState('')
   const [isAssignedUnitAdmin, setIsAssignedUnitAdmin] = useState(false)
+  const [isAssignedSponsorshipCoordinator, setIsAssignedSponsorshipCoordinator] = useState(false)
 
   // Get effective role: override takes precedence over stored user role
   const roleOverride = getRoleOverride(user?.edipi || '')
@@ -46,6 +47,18 @@ export default function HeaderTools() {
       }
     }
     if (user?.edipi) loadAdmins()
+  }, [user?.edipi])
+
+  useEffect(() => {
+    const loadCoordinatorStatus = async () => {
+      try {
+        const rucs = await sbGetCoordinatorRucs(user?.edipi || '')
+        setIsAssignedSponsorshipCoordinator(rucs.length > 0)
+      } catch {
+        setIsAssignedSponsorshipCoordinator(false)
+      }
+    }
+    if (user?.edipi) loadCoordinatorStatus()
   }, [user?.edipi])
 
   const handleLogout = () => {
@@ -102,6 +115,12 @@ export default function HeaderTools() {
                 <button onMouseDown={() => { setOpen(false); navigate('/task-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <ListChecks className="w-5 h-5 mr-2" />
                   Task Manager
+                </button>
+              )}
+              {isAssignedSponsorshipCoordinator && (
+                <button onMouseDown={() => { setOpen(false); navigate('/sponsorship-coordinator') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
+                  <HeartHandshake className="w-5 h-5 mr-2" />
+                  Sponsorship Coordinator
                 </button>
               )}
               <button onMouseDown={() => { setOpen(false); navigate('/settings') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">

@@ -89,3 +89,122 @@ export const sbPromoteUserToUnitAdmin = async (edipi: string, unit_key: string):
     // silently ignore if schema differs in local/dev
   }
 }
+
+// ===== Sponsorship Coordinator Management =====
+
+export type SponsorshipCoordinator = {
+  id?: number
+  coordinator_edipi: string
+  ruc: string
+  created_at?: string
+}
+
+export const sbListSponsorshipCoordinators = async (): Promise<SponsorshipCoordinator[]> => {
+  if (!isSupabaseConfigured()) return []
+  const { data, error } = await supabase
+    .from('sponsorship_coordinators')
+    .select('*')
+  if (error) {
+    // Table might not exist yet, return empty
+    console.warn('sponsorship_coordinators table not found:', error.message)
+    return []
+  }
+  return (data as any) || []
+}
+
+export const sbListSponsorshipCoordinatorsByRuc = async (ruc: string): Promise<SponsorshipCoordinator[]> => {
+  if (!isSupabaseConfigured()) return []
+  const { data, error } = await supabase
+    .from('sponsorship_coordinators')
+    .select('*')
+    .eq('ruc', ruc)
+  if (error) {
+    console.warn('sponsorship_coordinators table not found:', error.message)
+    return []
+  }
+  return (data as any) || []
+}
+
+export const sbGetCoordinatorRucs = async (coordinator_edipi: string): Promise<string[]> => {
+  if (!isSupabaseConfigured()) return []
+  const { data, error } = await supabase
+    .from('sponsorship_coordinators')
+    .select('ruc')
+    .eq('coordinator_edipi', coordinator_edipi)
+  if (error) {
+    console.warn('sponsorship_coordinators table not found:', error.message)
+    return []
+  }
+  const rows = (data as any) || []
+  const rucs = rows.map((row: { ruc: string }) => row.ruc).filter(Boolean) as string[]
+  return [...new Set(rucs)]
+}
+
+export const sbUpsertSponsorshipCoordinator = async (coordinator_edipi: string, ruc: string): Promise<void> => {
+  if (!isSupabaseConfigured()) return
+  const { error } = await supabase
+    .from('sponsorship_coordinators')
+    .upsert({ coordinator_edipi, ruc }, { onConflict: 'coordinator_edipi,ruc' })
+  if (error) throw error
+}
+
+export const sbRemoveSponsorshipCoordinator = async (coordinator_edipi: string, ruc: string): Promise<void> => {
+  if (!isSupabaseConfigured()) return
+  const { error } = await supabase
+    .from('sponsorship_coordinators')
+    .delete()
+    .eq('coordinator_edipi', coordinator_edipi)
+    .eq('ruc', ruc)
+  if (error) throw error
+}
+
+// ===== Sponsor Assignment for Form Submissions =====
+
+export const sbAssignSponsor = async (submission_id: number, sponsor_edipi: string, sponsor_name: string): Promise<void> => {
+  if (!isSupabaseConfigured()) return
+  const { error } = await supabase
+    .from('my_form_submissions')
+    .update({
+      assigned_sponsor_edipi: sponsor_edipi,
+      assigned_sponsor_name: sponsor_name
+    })
+    .eq('id', submission_id)
+  if (error) throw error
+}
+
+export const sbRemoveSponsorAssignment = async (submission_id: number): Promise<void> => {
+  if (!isSupabaseConfigured()) return
+  const { error } = await supabase
+    .from('my_form_submissions')
+    .update({
+      assigned_sponsor_edipi: null,
+      assigned_sponsor_name: null
+    })
+    .eq('id', submission_id)
+  if (error) throw error
+}
+
+// Get outbound submissions for units within a specific RUC (for Sponsorship Coordinator dashboard)
+export const sbListOutboundSubmissionsByDestinationRuc = async (ruc: string): Promise<any[]> => {
+  if (!isSupabaseConfigured()) return []
+  // Get all outbound submissions and filter by destination unit RUC
+  const { data, error } = await supabase
+    .from('my_form_submissions')
+    .select('*')
+    .eq('kind', 'Outbound')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  // Filter submissions where destination_unit_id contains the RUC
+  const filtered = (data || []).filter((sub: any) => {
+    const destUnit = sub.destination_unit_id || sub.unit_id || ''
+    // RUC is typically the middle part of unit_id format: UIC-RUC-MCC
+    const parts = destUnit.split('-')
+    if (parts.length >= 2) {
+      return parts[1] === ruc
+    }
+    return destUnit === ruc
+  })
+
+  return filtered
+}

@@ -1089,11 +1089,21 @@ export default function MyDashboard() {
                   const tasks = form.task_ids.map(tid => ({ sub_task_id: tid, description: (taskLabels[tid]?.description || tid), status: 'Pending' as const }))
                   const submission: any = {
                     user_id: user.user_id,
-                    unit_id: selectedUnit || user.unit_id,
+                    unit_id: newKind === 'Outbound' ? user.unit_id : (selectedUnit || user.unit_id),
                     form_id: form.id,
                     form_name: form.name,
                     kind: newKind,
-                    member: { edipi: user.edipi, rank: user.rank, first_name: user.first_name, last_name: user.last_name, company_id: user.company_id, platoon_id: user.platoon_id },
+                    member: {
+                      edipi: user.edipi,
+                      rank: user.rank,
+                      first_name: user.first_name,
+                      last_name: user.last_name,
+                      company_id: user.company_id,
+                      platoon_id: user.platoon_id,
+                      email: user.email,
+                      phone_number: user.phone_number,
+                      current_unit_id: user.unit_id
+                    },
                     tasks,
                     task_ids: form.task_ids,
                     completed_count: 0,
@@ -1101,7 +1111,10 @@ export default function MyDashboard() {
                     status: 'In_Progress'
                   }
                   if (newKind === 'Inbound') submission.arrival_date = arrivalDate || new Date().toISOString().slice(0,10)
-                  if (newKind === 'Outbound') submission.departure_date = departureDate || new Date().toISOString().slice(0,10)
+                  if (newKind === 'Outbound') {
+                    submission.departure_date = departureDate || new Date().toISOString().slice(0,10)
+                    submission.destination_unit_id = selectedUnit || ''
+                  }
                   try { await createSubmission(submission); setMySubmissions(await listSubmissions(user.user_id)) } catch (err) { console.error(err) }
                   setCreateOpen(false)
                   setNewKind('Inbound')

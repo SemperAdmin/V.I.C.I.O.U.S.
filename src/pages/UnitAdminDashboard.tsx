@@ -12,7 +12,7 @@ import { fetchJson, LocalUserProfile, UsersIndexEntry } from '@/services/localDa
 import { getRoleOverride, setUserRoleOverride } from '@/utils/localUsersStore'
 import { UNITS } from '@/utils/units'
 import { getAssignedUnitsForRuc, setAssignedUnitsForRuc } from '@/utils/adminScopeStore'
-import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbGetAdminRucs } from '@/services/adminService'
+import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbGetAdminRucs, sbListSponsorshipCoordinatorsByRuc, sbUpsertSponsorshipCoordinator, sbRemoveSponsorshipCoordinator, SponsorshipCoordinator } from '@/services/adminService'
 import { getUnitAdmins, addUnitAdmin, removeUnitAdmin } from '@/utils/unitAdminsStore'
 import { sbListUsersByRuc, sbUpdateUser } from '@/services/supabaseDataService'
 import { QRCodeSVG } from 'qrcode.react'
@@ -119,6 +119,8 @@ export default function UnitAdminDashboard() {
   const [editMemberSection, setEditMemberSection] = useState<string>('')
   const [editMemberRole, setEditMemberRole] = useState<'Unit_Manager' | 'Company_Manager' | 'Section_Manager' | 'Member'>('Member')
   const [editMemberIsUnitAdmin, setEditMemberIsUnitAdmin] = useState(false)
+  const [editMemberIsSponsorshipCoordinator, setEditMemberIsSponsorshipCoordinator] = useState(false)
+  const [sponsorshipCoordinators, setSponsorshipCoordinators] = useState<SponsorshipCoordinator[]>([])
 
   useEffect(() => {
     const items = UNITS.filter(u => String(u.ruc) === managedRuc)
@@ -220,6 +222,20 @@ export default function UnitAdminDashboard() {
       setAdminsLoading(false)
     })()
   }, [])
+
+  // Load sponsorship coordinators for the current RUC
+  useEffect(() => {
+    const loadCoordinators = async () => {
+      if (!managedRuc) return
+      try {
+        const coordinators = await sbListSponsorshipCoordinatorsByRuc(managedRuc)
+        setSponsorshipCoordinators(coordinators)
+      } catch {
+        setSponsorshipCoordinators([])
+      }
+    }
+    loadCoordinators()
+  }, [managedRuc])
 
   useEffect(() => {
     const filtered = selectedCompany ? sections.filter(s => s.company_id === selectedCompany) : sections
@@ -1299,6 +1315,9 @@ export default function UnitAdminDashboard() {
                                 // Check if this member is a unit admin for the current RUC
                                 const isAdmin = globalAdmins.some(a => a.admin_user_id === p.edipi && a.ruc === managedRuc)
                                 setEditMemberIsUnitAdmin(isAdmin)
+                                // Check if this member is a sponsorship coordinator for the current RUC
+                                const isCoordinator = sponsorshipCoordinators.some(c => c.coordinator_edipi === p.edipi)
+                                setEditMemberIsSponsorshipCoordinator(isCoordinator)
                               }}
                               className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                             >
@@ -1355,6 +1374,15 @@ export default function UnitAdminDashboard() {
                           />
                           <span className="text-white">Unit Admin for RUC {managedRuc}</span>
                         </label>
+                        <label className="flex items-center gap-3 px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editMemberIsSponsorshipCoordinator}
+                            onChange={e => setEditMemberIsSponsorshipCoordinator(e.target.checked)}
+                            className="w-4 h-4 rounded border-github-border text-github-blue focus:ring-github-blue"
+                          />
+                          <span className="text-white">Sponsorship Coordinator for RUC {managedRuc}</span>
+                        </label>
                       </div>
                       <div className="mt-6 flex gap-2 justify-end">
                         <button
@@ -1393,6 +1421,20 @@ export default function UnitAdminDashboard() {
                                 const admins = await sbListUnitAdmins()
                                 setGlobalAdmins(admins)
                               }
+                            }
+
+                            // Handle Sponsorship Coordinator assignment for RUC
+                            const wasCoordinator = sponsorshipCoordinators.some(c => c.coordinator_edipi === p.edipi)
+                            if (editMemberIsSponsorshipCoordinator && !wasCoordinator) {
+                              // Add as sponsorship coordinator for this RUC
+                              await sbUpsertSponsorshipCoordinator(p.edipi, managedRuc)
+                              const coordinators = await sbListSponsorshipCoordinatorsByRuc(managedRuc)
+                              setSponsorshipCoordinators(coordinators)
+                            } else if (!editMemberIsSponsorshipCoordinator && wasCoordinator) {
+                              // Remove as sponsorship coordinator for this RUC
+                              await sbRemoveSponsorshipCoordinator(p.edipi, managedRuc)
+                              const coordinators = await sbListSponsorshipCoordinatorsByRuc(managedRuc)
+                              setSponsorshipCoordinators(coordinators)
                             }
 
                             const updated = { ...p, company_id: editMemberCompany || p.company_id, platoon_id: editMemberSection || (p.platoon_id as any), org_role: editMemberRole }
