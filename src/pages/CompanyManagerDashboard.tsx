@@ -4,7 +4,7 @@ import HeaderTools from '@/components/HeaderTools'
 import BrandMark from '@/components/BrandMark'
 import { fetchJson, LocalUserProfile, UsersIndexEntry, getChecklistByUnit, getProgressByMember } from '@/services/localDataService'
 import { sbListUsers, sbListSubmissionsByUnit } from '@/services/supabaseDataService'
-import { getRoleOverride } from '@/utils/localUsersStore'
+import { getRoleOverride, setUserRoleOverride } from '@/utils/localUsersStore'
 import { normalizeOrgRole } from '@/utils/roles'
 import { listSections, listCompanies } from '@/utils/unitStructure'
 import { MyFormSubmission, MyFormSubmissionTask } from '@/utils/myFormSubmissionsStore'
@@ -12,7 +12,7 @@ import { MyFormSubmission, MyFormSubmissionTask } from '@/utils/myFormSubmission
 
 export default function CompanyManagerDashboard() {
   const { user } = useAuthStore()
-  const [tab, setTab] = useState<'inbound' | 'outbound'>('inbound')
+  const [tab, setTab] = useState<'inbound' | 'outbound' | 'members'>('inbound')
   const [memberMap, setMemberMap] = useState<Record<string, LocalUserProfile>>({})
   const [companyLabel, setCompanyLabel] = useState('')
   const [sectionDisplayMap, setSectionDisplayMap] = useState<Record<string, string>>({})
@@ -30,6 +30,11 @@ export default function CompanyManagerDashboard() {
   const [filterMember, setFilterMember] = useState('')
   const [filterSection, setFilterSection] = useState('')
   const [filterForm, setFilterForm] = useState('')
+
+  // Members tab state
+  const [companyMembers, setCompanyMembers] = useState<LocalUserProfile[]>([])
+  const [editingMember, setEditingMember] = useState<string | null>(null)
+  const [editMemberRole, setEditMemberRole] = useState<'Company_Manager' | 'Member'>('Member')
 
   // Memoized filtered rows for each view
   const pendingInboundRows = useMemo(() => {
@@ -165,8 +170,12 @@ export default function CompanyManagerDashboard() {
       }
       setMemberMap(map)
 
-      // Get company label
+      // Filter members in this company for the Members tab
       const myCompanyId = user.company_id || ''
+      const membersInCompany = Object.values(map).filter(p => p.company_id === myCompanyId)
+      setCompanyMembers(membersInCompany)
+
+      // Get company label
       const companies = await listCompanies(user.unit_id)
       const company = companies.find(c => c.company_id === myCompanyId)
       setCompanyLabel(company?.display_name || myCompanyId || 'Company')
@@ -303,6 +312,12 @@ export default function CompanyManagerDashboard() {
               className={`px-4 py-3 text-sm ${tab === 'outbound' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
               Outbound
+            </button>
+            <button
+              onClick={() => setTab('members')}
+              className={`px-4 py-3 text-sm ${tab === 'members' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+            >
+              Members
             </button>
           </div>
           <div className="p-6">
@@ -601,6 +616,86 @@ export default function CompanyManagerDashboard() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+            {tab === 'members' && (
+              <div className="space-y-6">
+                <div className="text-gray-300">All members in your company</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full table-fixed text-xs sm:text-sm">
+                    <thead className="text-gray-400">
+                      <tr>
+                        <th className="text-left p-2">Member</th>
+                        <th className="text-left p-2 hidden sm:table-cell">EDIPI</th>
+                        <th className="text-left p-2">Section</th>
+                        <th className="text-left p-2">Role</th>
+                        <th className="text-left p-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {companyMembers.map(member => {
+                        const effectiveRole = getRoleOverride(member.edipi || '')?.org_role || normalizeOrgRole(member.org_role) || 'Member'
+                        const name = [member.first_name, member.last_name].filter(Boolean).join(' ')
+                        const sectionLabel = sectionDisplayMap[String(member.platoon_id || '')] || member.platoon_id || ''
+                        return (
+                          <tr key={member.edipi || member.user_id} className="border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
+                            <td className="p-2 truncate">{[member.rank, name].filter(Boolean).join(' ')}</td>
+                            <td className="p-2 hidden sm:table-cell">{member.edipi || ''}</td>
+                            <td className="p-2">{sectionLabel}</td>
+                            <td className="p-2">
+                              {editingMember === member.edipi ? (
+                                <select
+                                  value={editMemberRole}
+                                  onChange={e => setEditMemberRole(e.target.value as 'Company_Manager' | 'Member')}
+                                  className="px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white"
+                                >
+                                  <option value="Company_Manager">Company Manager</option>
+                                  <option value="Member">Member</option>
+                                </select>
+                              ) : (
+                                effectiveRole.replace(/_/g, ' ')
+                              )}
+                            </td>
+                            <td className="p-2">
+                              {editingMember === member.edipi ? (
+                                <div className="flex gap-2">
+                                  <button
+                                    className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
+                                    onClick={() => {
+                                      if (member.edipi) {
+                                        setUserRoleOverride(member.edipi, editMemberRole)
+                                        setEditingMember(null)
+                                      }
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs"
+                                    onClick={() => setEditingMember(null)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                                  onClick={() => {
+                                    setEditingMember(member.edipi || null)
+                                    const currentRole = getRoleOverride(member.edipi || '')?.org_role || normalizeOrgRole(member.org_role) || 'Member'
+                                    setEditMemberRole(currentRole === 'Company_Manager' ? 'Company_Manager' : 'Member')
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
