@@ -14,6 +14,10 @@ export default function HeaderTools() {
   const [sectionLabel, setSectionLabel] = useState('')
   const [isAssignedUnitAdmin, setIsAssignedUnitAdmin] = useState(false)
 
+  // Get effective role: override takes precedence over stored user role
+  const roleOverride = getRoleOverride(user?.edipi || '')
+  const effectiveRole = normalizeOrgRole(roleOverride?.org_role) || normalizeOrgRole(user?.org_role)
+
   useEffect(() => {
     const load = async () => {
       const uid = user?.unit_id
@@ -70,25 +74,25 @@ export default function HeaderTools() {
                   App Admin
                 </button>
               )}
-              {(normalizeOrgRole(getRoleOverride(user?.edipi || '')?.org_role) === 'Unit_Admin' || normalizeOrgRole(user?.org_role) === 'Unit_Admin' || isAssignedUnitAdmin) && (
+              {(effectiveRole === 'Unit_Admin' || isAssignedUnitAdmin) && (
                 <button onMouseDown={() => { setOpen(false); navigate('/unit-admin') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <Shield className="w-5 h-5 mr-2" />
                   Unit Admin
                 </button>
               )}
-              {(normalizeOrgRole(getRoleOverride(user?.edipi || '')?.org_role) === 'Company_Manager' || normalizeOrgRole(user?.org_role) === 'Company_Manager') && (
+              {effectiveRole === 'Company_Manager' && (
                 <button onMouseDown={() => { setOpen(false); navigate('/company-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <Building2 className="w-5 h-5 mr-2" />
                   Company Manager
                 </button>
               )}
-              {(normalizeOrgRole(getRoleOverride(user?.edipi || '')?.org_role) === 'Section_Manager' || normalizeOrgRole(user?.org_role) === 'Section_Manager') && (
+              {effectiveRole === 'Section_Manager' && (
                 <button onMouseDown={() => { setOpen(false); navigate('/section-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <ListChecks className="w-5 h-5 mr-2" />
                   Section Manager
                 </button>
               )}
-              {(normalizeOrgRole(getRoleOverride(user?.edipi || '')?.org_role) === 'Section_Manager' || normalizeOrgRole(user?.org_role) === 'Section_Manager') && (
+              {effectiveRole === 'Section_Manager' && (
                 <button onMouseDown={() => { setOpen(false); navigate('/task-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <ListChecks className="w-5 h-5 mr-2" />
                   Task Manager
