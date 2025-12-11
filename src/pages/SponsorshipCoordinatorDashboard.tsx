@@ -223,7 +223,9 @@ export default function SponsorshipCoordinatorDashboard() {
                     {incomingMembers.map((submission) => {
                       const member = submission.member
                       const memberName = [member?.rank, member?.first_name, member?.last_name].filter(Boolean).join(' ')
-                      const currentUnit = member?.current_unit_id || submission.unit_id || ''
+                      // Look up actual member unit from their profile, not the submission snapshot
+                      const memberProfile = memberMap[submission.user_id] || memberMap[member?.edipi || '']
+                      const currentUnit = memberProfile?.unit_id || submission.unit_id || ''
                       const isExpanded = expandedRow === submission.id
 
                       return (
