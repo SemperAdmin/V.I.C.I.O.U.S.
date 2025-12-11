@@ -517,8 +517,6 @@ export default function MyDashboard() {
                                     if (!form) return
                                     // CRITICAL: Use the SUBMISSION's own tasks array, NOT global members_progress
                                     const submissionTasks = (s.tasks || []) as Array<{ sub_task_id: string; description?: string; status: 'Pending' | 'Cleared' | 'Skipped' }>
-                                    const clearedSet = new Set(submissionTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
-                                    const pendingSet = new Set(submissionTasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
 
                                     // Build pending tasks from this submission's own data
                                     const tasks = submissionTasks
@@ -803,8 +801,6 @@ export default function MyDashboard() {
                                     if (!form) return
                                     // CRITICAL: Use the SUBMISSION's own tasks array, NOT global members_progress
                                     const submissionTasks = (s.tasks || []) as Array<{ sub_task_id: string; description?: string; status: 'Pending' | 'Cleared' | 'Skipped' }>
-                                    const clearedSet = new Set(submissionTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
-                                    const pendingSet = new Set(submissionTasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
 
                                     // Build pending tasks from this submission's own data
                                     const tasks = submissionTasks
