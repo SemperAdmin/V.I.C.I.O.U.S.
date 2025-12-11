@@ -20,8 +20,10 @@ export default function TaskManagerDashboard() {
   const [memberMap, setMemberMap] = useState<Record<string, LocalUserProfile>>({})
   const [taskLabels, setTaskLabels] = useState<Record<string, { section_name: string; description: string }>>({})
   const [sectionDisplayMap, setSectionDisplayMap] = useState<Record<string, string>>({})
-  const [inboundGroups, setInboundGroups] = useState<Record<string, string[]>>({})
-  const [outboundGroups, setOutboundGroups] = useState<Record<string, string[]>>({})
+  // Each entry is an array of { memberId, submissionId, date } for showing each submission separately
+  type SubmissionEntry = { memberId: string; submissionId: number; date?: string; formName?: string }
+  const [inboundGroups, setInboundGroups] = useState<Record<string, SubmissionEntry[]>>({})
+  const [outboundGroups, setOutboundGroups] = useState<Record<string, SubmissionEntry[]>>({})
   const [inboundSectionGroups, setInboundSectionGroups] = useState<Record<string, Array<{ subTaskId: string; members: string[] }>>>({})
   const [pendingByTask, setPendingByTask] = useState<Record<string, string[]>>({})
   const [completedByTask, setCompletedByTask] = useState<Record<string, string[]>>({})
@@ -173,10 +175,12 @@ export default function TaskManagerDashboard() {
         }
       }
 
-      const inboundByTask: Record<string, Set<string>> = {}
-      const inboundCompletedByTask: Record<string, Set<string>> = {}
-      const outboundByTask: Record<string, Set<string>> = {}
-      const outboundCompletedByTask: Record<string, Set<string>> = {}
+      // Track each submission separately - array of { memberId, submissionId, date, formName }
+      type SubmissionEntry = { memberId: string; submissionId: number; date?: string; formName?: string }
+      const inboundByTask: Record<string, SubmissionEntry[]> = {}
+      const inboundCompletedByTask: Record<string, SubmissionEntry[]> = {}
+      const outboundByTask: Record<string, SubmissionEntry[]> = {}
+      const outboundCompletedByTask: Record<string, SubmissionEntry[]> = {}
       const allPendingByTask: Record<string, Set<string>> = {}
       const allCompletedByTask: Record<string, Set<string>> = {}
       // Track submission IDs: { subTaskId -> { memberId -> submissionId } }
@@ -187,6 +191,11 @@ export default function TaskManagerDashboard() {
           const kind = (s as any).kind as 'Inbound' | 'Outbound'
           const memberId = (s as any).user_id as string
           const submissionId = (s as any).id as number
+          const formName = (s as any).form_name || ''
+          // Extract dates: arrival_date for inbound, departure_date for outbound
+          const formData = (s as any).form_data || {}
+          const arrivalDate = formData.arrival_date || formData.arrivalDate || ''
+          const departureDate = formData.departure_date || formData.departureDate || ''
           const tasks = ((s as any).tasks || []) as Array<{ sub_task_id: string; status: 'Pending' | 'Cleared' | 'Skipped' }>
           for (const t of tasks) {
             const subId = t.sub_task_id
@@ -196,27 +205,27 @@ export default function TaskManagerDashboard() {
               // Track which submission this pending task belongs to
               if (!submissionTracking[subId]) submissionTracking[subId] = {}
               submissionTracking[subId][memberId] = submissionId
-              // Add to kind-specific pending list based on submission type (no task ID check)
+              // Add to kind-specific pending list with submission details (each submission separate)
               if (kind === 'Inbound') {
-                if (!inboundByTask[subId]) inboundByTask[subId] = new Set()
-                inboundByTask[subId].add(memberId)
+                if (!inboundByTask[subId]) inboundByTask[subId] = []
+                inboundByTask[subId].push({ memberId, submissionId, date: arrivalDate, formName })
               }
               if (kind === 'Outbound') {
-                if (!outboundByTask[subId]) outboundByTask[subId] = new Set()
-                outboundByTask[subId].add(memberId)
+                if (!outboundByTask[subId]) outboundByTask[subId] = []
+                outboundByTask[subId].push({ memberId, submissionId, date: departureDate, formName })
               }
             }
             if (t.status === 'Cleared') {
               if (!allCompletedByTask[subId]) allCompletedByTask[subId] = new Set()
               allCompletedByTask[subId].add(memberId)
-              // Add to kind-specific completed list based on submission type (no task ID check)
+              // Add to kind-specific completed list with submission details
               if (kind === 'Inbound') {
-                if (!inboundCompletedByTask[subId]) inboundCompletedByTask[subId] = new Set()
-                inboundCompletedByTask[subId].add(memberId)
+                if (!inboundCompletedByTask[subId]) inboundCompletedByTask[subId] = []
+                inboundCompletedByTask[subId].push({ memberId, submissionId, date: arrivalDate, formName })
               }
               if (kind === 'Outbound') {
-                if (!outboundCompletedByTask[subId]) outboundCompletedByTask[subId] = new Set()
-                outboundCompletedByTask[subId].add(memberId)
+                if (!outboundCompletedByTask[subId]) outboundCompletedByTask[subId] = []
+                outboundCompletedByTask[subId].push({ memberId, submissionId, date: departureDate, formName })
               }
             }
           }
@@ -227,19 +236,21 @@ export default function TaskManagerDashboard() {
         // Each submission's tasks array is the source of truth for that submission's pending/completed status.
         // This ensures that multiple submissions of the same form are truly independent.
       } catch (err) { console.error(err) }
-      const inboundGroupsArr = Object.fromEntries(Object.entries(inboundByTask).map(([k, v]) => [k, Array.from(v)]))
-      setInboundGroups(inboundGroupsArr)
-      const inboundCompletedGroupsArr = Object.fromEntries(Object.entries(inboundCompletedByTask).map(([k, v]) => [k, Array.from(v)]))
+      // inboundByTask is now already an array of SubmissionEntry objects
+      setInboundGroups(inboundByTask)
+      // For completed groups, we still need member arrays for the section grouping
+      const inboundCompletedGroupsArr = Object.fromEntries(Object.entries(inboundCompletedByTask).map(([k, v]) => [k, v.map(e => e.memberId)]))
       setInboundCompletedGroups(inboundCompletedGroupsArr)
-      const outboundCompletedGroupsArr = Object.fromEntries(Object.entries(outboundCompletedByTask).map(([k, v]) => [k, Array.from(v)]))
+      const outboundCompletedGroupsArr = Object.fromEntries(Object.entries(outboundCompletedByTask).map(([k, v]) => [k, v.map(e => e.memberId)]))
       setOutboundCompletedGroups(outboundCompletedGroupsArr)
-      setOutboundGroups(Object.fromEntries(Object.entries(outboundByTask).map(([k, v]) => [k, Array.from(v)])))
+      setOutboundGroups(outboundByTask)
       setPendingByTask(Object.fromEntries(Object.entries(allPendingByTask).map(([k, v]) => [k, Array.from(v)])))
       setCompletedByTask(Object.fromEntries(Object.entries(allCompletedByTask).map(([k, v]) => [k, Array.from(v)])))
-      console.log('Inbound/Outbound sizes', { inbound: Object.keys(inboundGroupsArr).length, outbound: Object.keys(outboundByTask).length })
+      console.log('Inbound/Outbound sizes', { inbound: Object.keys(inboundByTask).length, outbound: Object.keys(outboundByTask).length })
 
       const secGrouped: Record<string, Array<{ subTaskId: string; members: string[] }>> = {}
-      for (const [subTaskId, members] of Object.entries(inboundGroupsArr)) {
+      for (const [subTaskId, entries] of Object.entries(inboundByTask)) {
+        const members = entries.map(e => e.memberId)
         const sid = subTaskMap[subTaskId]?.section_id
         const key = sid ? String(sid) : ''
         let secName = key ? (sectionDisplayMap[key] || key) : ''
@@ -423,8 +434,9 @@ export default function TaskManagerDashboard() {
                     const subTaskId = t.sub_task_id
                     const label = taskLabels[subTaskId]
                     const taskDesc = label?.description || subTaskId
-                    const pendingMembers = (pendingByTask[subTaskId] || [])
-                    const pendingCount = pendingMembers.length
+                    // Use inboundGroups which now has submission entries (each submission separate)
+                    const pendingSubmissions = (inboundGroups[subTaskId] || [])
+                    const pendingCount = pendingSubmissions.length
                     const sid = subTaskMap[subTaskId]?.section_id
                     const key = sid ? String(sid) : ''
                     let secDisplay = key ? (sectionDisplayMap[key] || key) : ''
@@ -447,26 +459,28 @@ export default function TaskManagerDashboard() {
                                 <th className="text-left p-2">Member</th>
                                 <th className="text-left p-2 hidden sm:table-cell">EDIPI</th>
                                 <th className="text-left p-2">Company</th>
-                                <th className="text-left p-2">Section</th>
+                                <th className="text-left p-2">Arrival</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {pendingMembers.map(mid => {
+                              {pendingSubmissions.map((entry, idx) => {
+                                const mid = entry.memberId
                                 const m = memberMap[mid]
                                 const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
                                 const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
                                 const edipi = m?.edipi || mid
                                 const company = m?.company_id || ''
+                                // Format date for display
+                                const dateDisplay = entry.date ? new Date(entry.date).toLocaleDateString() : '-'
                                 return (
                                   <tr
-                                    key={`bytask-${subTaskId}-${mid}`}
+                                    key={`bytask-${subTaskId}-${entry.submissionId}-${idx}`}
                                     className="border-t border-github-border text-gray-300 cursor-pointer"
                                     onClick={() => {
                                       setActionSubTaskId(subTaskId)
                                       setActionMemberId(mid)
-                                      // Capture the specific submission ID for this task+member
-                                      const subId = submissionByTaskMember[subTaskId]?.[mid] || null
-                                      setActionSubmissionId(subId)
+                                      // Use the specific submission ID from this row
+                                      setActionSubmissionId(entry.submissionId)
                                       const unitKey = (user?.unit_id || '').includes('-') ? (user?.unit_id as string).split('-')[1] : (user?.unit_id as string)
                                       const sid = subTaskMap[subTaskId]?.section_id
                                       const key = sid ? `section_instructions:${unitKey}:${sid}` : ''
@@ -475,16 +489,16 @@ export default function TaskManagerDashboard() {
                                       setActionOpen(true)
                                     }}
                                   >
-                                    <td className="p-2">{formNameByTask[subTaskId] || 'Inbound'}</td>
+                                    <td className="p-2">{entry.formName || formNameByTask[subTaskId] || 'Inbound'}</td>
                                     <td className="p-2 truncate">{memberDisp}</td>
                                     <td className="p-2 hidden sm:table-cell">{edipi}</td>
                                     <td className="p-2">{company}</td>
-                                    <td className="p-2">{secDisplay}</td>
+                                    <td className="p-2">{dateDisplay}</td>
                                   </tr>
                                 )
                               })}
                             </tbody>
-                            
+
                           </table>
                           </div>
                           </div>
@@ -594,8 +608,9 @@ export default function TaskManagerDashboard() {
                     const subTaskId = t.sub_task_id
                     const label = taskLabels[subTaskId]
                     const taskDesc = label?.description || subTaskId
-                    const pendingMembers = (outboundGroups[subTaskId] || [])
-                    const pendingCount = pendingMembers.length
+                    // Use outboundGroups which now has submission entries (each submission separate)
+                    const pendingSubmissions = (outboundGroups[subTaskId] || [])
+                    const pendingCount = pendingSubmissions.length
                     const sid = subTaskMap[subTaskId]?.section_id
                     const key = sid ? String(sid) : ''
                     let secDisplay = key ? (sectionDisplayMap[key] || key) : ''
@@ -618,26 +633,28 @@ export default function TaskManagerDashboard() {
                                 <th className="text-left p-2">Member</th>
                                 <th className="text-left p-2 hidden sm:table-cell">EDIPI</th>
                                 <th className="text-left p-2">Company</th>
-                                <th className="text-left p-2">Section</th>
+                                <th className="text-left p-2">Departure</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {pendingMembers.map(mid => {
+                              {pendingSubmissions.map((entry, idx) => {
+                                const mid = entry.memberId
                                 const m = memberMap[mid]
                                 const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
                                 const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
                                 const edipi = m?.edipi || mid
                                 const company = m?.company_id || ''
+                                // Format date for display
+                                const dateDisplay = entry.date ? new Date(entry.date).toLocaleDateString() : '-'
                                 return (
                                   <tr
-                                    key={`ob-bytask-${subTaskId}-${mid}`}
+                                    key={`ob-bytask-${subTaskId}-${entry.submissionId}-${idx}`}
                                     className="border-t border-github-border text-gray-300 cursor-pointer"
                                     onClick={() => {
                                       setActionSubTaskId(subTaskId)
                                       setActionMemberId(mid)
-                                      // Capture the specific submission ID for this task+member
-                                      const subId = submissionByTaskMember[subTaskId]?.[mid] || null
-                                      setActionSubmissionId(subId)
+                                      // Use the specific submission ID from this row
+                                      setActionSubmissionId(entry.submissionId)
                                       const unitKey = (user?.unit_id || '').includes('-') ? (user?.unit_id as string).split('-')[1] : (user?.unit_id as string)
                                       const sid = subTaskMap[subTaskId]?.section_id
                                       const key = sid ? `section_instructions:${unitKey}:${sid}` : ''
@@ -646,16 +663,16 @@ export default function TaskManagerDashboard() {
                                       setActionOpen(true)
                                     }}
                                   >
-                                    <td className="p-2">{formNameByTask[subTaskId] || 'Outbound'}</td>
+                                    <td className="p-2">{entry.formName || formNameByTask[subTaskId] || 'Outbound'}</td>
                                     <td className="p-2 truncate">{memberDisp}</td>
                                     <td className="p-2 hidden sm:table-cell">{edipi}</td>
                                     <td className="p-2">{company}</td>
-                                    <td className="p-2">{secDisplay}</td>
+                                    <td className="p-2">{dateDisplay}</td>
                                   </tr>
                                 )
                               })}
                             </tbody>
-                            
+
                           </table>
                         </div>
                       </div>
