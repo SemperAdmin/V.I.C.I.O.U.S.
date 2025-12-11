@@ -13,6 +13,13 @@ import {
 import { UNITS } from '@/utils/units'
 import { MyFormSubmission } from '@/utils/myFormSubmissionsStore'
 
+// Helper to extract RUC from unit_id (format: UIC-RUC-MCC)
+const extractRucFromUnitId = (unitId: string): string => {
+  if (!unitId) return ''
+  const parts = unitId.split('-')
+  return parts.length >= 2 ? parts[1] : unitId
+}
+
 export default function SponsorshipCoordinatorDashboard() {
   const { user } = useAuthStore()
   const [coordinatorRucs, setCoordinatorRucs] = useState<string[]>([])
@@ -20,6 +27,7 @@ export default function SponsorshipCoordinatorDashboard() {
   const [incomingMembers, setIncomingMembers] = useState<MyFormSubmission[]>([])
   const [memberMap, setMemberMap] = useState<Record<string, LocalUserProfile>>({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [assigningSubmission, setAssigningSubmission] = useState<MyFormSubmission | null>(null)
@@ -29,8 +37,7 @@ export default function SponsorshipCoordinatorDashboard() {
   // Get unit name from unit_id
   const getUnitName = (unitId: string) => {
     if (!unitId) return ''
-    const parts = unitId.split('-')
-    const ruc = parts.length >= 2 ? parts[1] : unitId
+    const ruc = extractRucFromUnitId(unitId)
     const unit = UNITS.find(u => u.ruc === ruc || `${u.uic}-${u.ruc}-${u.mcc}` === unitId)
     return unit?.unitName || unitId
   }
@@ -61,11 +68,13 @@ export default function SponsorshipCoordinatorDashboard() {
 
         // Set available sponsors from users in the RUC
         setAvailableSponsors(allUsers.filter(u => {
-          const userRuc = (u.unit_id || '').split('-')[1] || u.unit_id
+          const userRuc = extractRucFromUnitId(u.unit_id || '')
           return rucs.includes(userRuc)
         }))
+        setError(null)
       } catch (err) {
         console.error('Error loading coordinator dashboard:', err)
+        setError('Failed to load dashboard data. Please try refreshing the page.')
       }
       setLoading(false)
     }
@@ -76,8 +85,10 @@ export default function SponsorshipCoordinatorDashboard() {
     try {
       const submissions = await sbListOutboundSubmissionsByDestinationRuc(ruc)
       setIncomingMembers(submissions)
+      setError(null)
     } catch (err) {
       console.error('Error loading incoming members:', err)
+      setError('Failed to load incoming members.')
     }
   }
 
@@ -99,6 +110,7 @@ export default function SponsorshipCoordinatorDashboard() {
       setSponsorSearch('')
     } catch (err) {
       console.error('Error assigning sponsor:', err)
+      alert('Failed to assign sponsor. Please try again.')
     }
   }
 
@@ -108,6 +120,7 @@ export default function SponsorshipCoordinatorDashboard() {
       await loadIncomingMembers(selectedRuc)
     } catch (err) {
       console.error('Error removing sponsor:', err)
+      alert('Failed to remove sponsor. Please try again.')
     }
   }
 
@@ -178,6 +191,11 @@ export default function SponsorshipCoordinatorDashboard() {
           </div>
 
           <div className="p-4 sm:p-6">
+            {error && (
+              <div className="mb-4 p-3 bg-red-900 bg-opacity-30 border border-red-600 rounded text-red-400 text-sm">
+                {error}
+              </div>
+            )}
             <div className="mb-4">
               <p className="text-gray-400 text-sm">
                 Incoming Marines to RUC {selectedRuc}: <span className="text-white font-medium">{incomingMembers.length}</span>

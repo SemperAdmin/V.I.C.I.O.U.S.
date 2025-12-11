@@ -185,26 +185,21 @@ export const sbRemoveSponsorAssignment = async (submission_id: number): Promise<
 }
 
 // Get outbound submissions for units within a specific RUC (for Sponsorship Coordinator dashboard)
+// Uses database-side filtering with LIKE pattern for efficiency
 export const sbListOutboundSubmissionsByDestinationRuc = async (ruc: string): Promise<any[]> => {
   if (!isSupabaseConfigured()) return []
-  // Get all outbound submissions and filter by destination unit RUC
+
+  // Use database-side filtering with LIKE pattern to match RUC in destination_unit_id
+  // Format is typically: UIC-RUC-MCC (e.g., M00318-02301-091)
+  const rucPattern = `%-${ruc}-%`
+
   const { data, error } = await supabase
     .from('my_form_submissions')
     .select('*')
     .eq('kind', 'Outbound')
+    .or(`destination_unit_id.like.${rucPattern},destination_unit_id.eq.${ruc}`)
     .order('created_at', { ascending: false })
+
   if (error) throw error
-
-  // Filter submissions where destination_unit_id contains the RUC
-  const filtered = (data || []).filter((sub: any) => {
-    const destUnit = sub.destination_unit_id || sub.unit_id || ''
-    // RUC is typically the middle part of unit_id format: UIC-RUC-MCC
-    const parts = destUnit.split('-')
-    if (parts.length >= 2) {
-      return parts[1] === ruc
-    }
-    return destUnit === ruc
-  })
-
-  return filtered
+  return data || []
 }

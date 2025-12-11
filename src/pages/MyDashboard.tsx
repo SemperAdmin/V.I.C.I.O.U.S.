@@ -566,7 +566,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Inbound', tasks, s as any))
@@ -651,7 +651,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Inbound', tasks))
@@ -745,7 +745,7 @@ export default function MyDashboard() {
                                   const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                   const st = subTaskMap[t.sub_task_id]
                                   if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                  pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                  pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                 }
                                 setPreviewPendingBySection(pendingBySection)
                                 setSubmissionPreview(createPreview(form, 'Inbound', tasks))
@@ -854,7 +854,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks, s as any))
@@ -919,7 +919,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks))
@@ -1015,7 +1015,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks))
@@ -1186,7 +1186,13 @@ export default function MyDashboard() {
         {submissionPreview && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-2xl max-h-[80vh] overflow-y-auto bg-black border border-github-border rounded-xl p-6">
-              <h3 className="text-white text-lg mb-4">{submissionPreview.id}: {submissionPreview.kind} | {submissionPreview.form_name}</h3>
+              <h3 className="text-white text-lg mb-4">
+                {submissionPreview.id}: {submissionPreview.kind} | {submissionPreview.form_name}
+                {submissionPreview.kind === 'Outbound' && submissionPreview.destination_unit_id && (() => {
+                  const destUnit = unitOptions.find(u => u.id === submissionPreview.destination_unit_id)
+                  return destUnit ? ` | ${destUnit.name}` : ''
+                })()}
+              </h3>
               <div className="grid grid-cols-2 gap-3 text-sm text-gray-300">
                 <div><span className="text-gray-400">Member:</span> {[submissionPreview.member.rank, [submissionPreview.member.first_name, submissionPreview.member.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ')}</div>
                 <div><span className="text-gray-400">Unit:</span> {submissionPreview.unit_id}</div>

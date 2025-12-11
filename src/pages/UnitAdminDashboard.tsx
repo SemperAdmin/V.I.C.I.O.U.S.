@@ -230,7 +230,8 @@ export default function UnitAdminDashboard() {
       try {
         const coordinators = await sbListSponsorshipCoordinatorsByRuc(managedRuc)
         setSponsorshipCoordinators(coordinators)
-      } catch {
+      } catch (err) {
+        console.error('Failed to load sponsorship coordinators:', err)
         setSponsorshipCoordinators([])
       }
     }
@@ -1425,14 +1426,15 @@ export default function UnitAdminDashboard() {
 
                             // Handle Sponsorship Coordinator assignment for RUC
                             const wasCoordinator = sponsorshipCoordinators.some(c => c.coordinator_edipi === p.edipi)
+                            let coordinatorUpdated = false
                             if (editMemberIsSponsorshipCoordinator && !wasCoordinator) {
-                              // Add as sponsorship coordinator for this RUC
                               await sbUpsertSponsorshipCoordinator(p.edipi, managedRuc)
-                              const coordinators = await sbListSponsorshipCoordinatorsByRuc(managedRuc)
-                              setSponsorshipCoordinators(coordinators)
+                              coordinatorUpdated = true
                             } else if (!editMemberIsSponsorshipCoordinator && wasCoordinator) {
-                              // Remove as sponsorship coordinator for this RUC
                               await sbRemoveSponsorshipCoordinator(p.edipi, managedRuc)
+                              coordinatorUpdated = true
+                            }
+                            if (coordinatorUpdated) {
                               const coordinators = await sbListSponsorshipCoordinatorsByRuc(managedRuc)
                               setSponsorshipCoordinators(coordinators)
                             }

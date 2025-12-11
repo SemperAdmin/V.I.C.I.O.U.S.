@@ -54,7 +54,8 @@ export default function HeaderTools() {
       try {
         const rucs = await sbGetCoordinatorRucs(user?.edipi || '')
         setIsAssignedSponsorshipCoordinator(rucs.length > 0)
-      } catch {
+      } catch (err) {
+        console.error('Failed to load coordinator status:', err)
         setIsAssignedSponsorshipCoordinator(false)
       }
     }
