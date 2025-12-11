@@ -1367,6 +1367,11 @@ export default function UnitAdminDashboard() {
                               })
                             }
 
+                            // Save role override to localStorage for HeaderTools menu visibility
+                            if (editMemberRole === 'Company_Manager' || editMemberRole === 'Section_Manager' || editMemberRole === 'Member') {
+                              setUserRoleOverride(p.edipi, editMemberRole)
+                            }
+
                             // Handle Unit Admin assignment for RUC
                             const wasAdmin = globalAdmins.some(a => a.admin_user_id === p.edipi && a.ruc === managedRuc)
                             if (editMemberIsUnitAdmin && !wasAdmin) {
