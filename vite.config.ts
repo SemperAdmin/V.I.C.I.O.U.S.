@@ -4,7 +4,8 @@ import path from 'path'
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const base = command === 'build' ? (env.VITE_BASE_PATH || '/Process-Point/') : '/'
+  // Default to root path for local dev, use VITE_BASE_PATH env var for GitHub Pages
+  const base = env.VITE_BASE_PATH || '/'
   return {
     base,
     plugins: [react()],
