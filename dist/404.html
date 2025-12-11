@@ -7,8 +7,7 @@
       // Single Page Apps for GitHub Pages - encode path with encodeURIComponent
       var pathSegmentsToKeep = 1; // 1 for /repo-name/ base path
       var l = window.location;
-      var basePath = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-                     l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/');
+      var basePath = l.origin + l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/');
       var originalPathAndQuery = l.pathname.split('/').slice(1 + pathSegmentsToKeep).join('/') + l.search;
       l.replace(basePath + '/?p=' + encodeURIComponent(originalPathAndQuery) + l.hash);
     </script>

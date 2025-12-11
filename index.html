@@ -19,7 +19,7 @@
         if (encodedPath) {
           var decodedPathAndQuery = decodeURIComponent(encodedPath);
           window.history.replaceState(null, null,
-              l.pathname.slice(0, -1) + '/' + decodedPathAndQuery + l.hash
+              l.pathname.replace(/\/$/, '') + '/' + decodedPathAndQuery + l.hash
           );
         }
       }(window.location))
