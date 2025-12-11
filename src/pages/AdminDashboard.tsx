@@ -5,6 +5,7 @@ import { sbGetUserByEdipi, sbListUsers } from '@/services/supabaseDataService'
 import HeaderTools from '@/components/HeaderTools'
 import BrandMark from '@/components/BrandMark'
 import { normalizeOrgRole } from '@/utils/roles'
+import { listSections } from '@/utils/unitStructure'
 
 export default function AdminDashboard() {
   const { user } = useAuthStore()
@@ -19,6 +20,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [editingUnit, setEditingUnit] = useState<string | null>(null)
   const [addingUnit, setAddingUnit] = useState<string | null>(null)
+  const [sectionDisplayMap, setSectionDisplayMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const load = async () => {
@@ -45,6 +47,19 @@ export default function AdminDashboard() {
         // Load all users
         const users = await sbListUsers()
         setAllUsers(users)
+        // Load sections for all unique unit_ids to get display names
+        const unitIds = Array.from(new Set(users.map(u => u.unit_id).filter(Boolean)))
+        const dispMap: Record<string, string> = {}
+        for (const uid of unitIds) {
+          try {
+            const secs = await listSections(uid)
+            for (const s of secs) {
+              dispMap[String(s.id)] = (s as any).display_name || s.section_name
+              dispMap[s.section_name] = (s as any).display_name || s.section_name
+            }
+          } catch {}
+        }
+        setSectionDisplayMap(dispMap)
       } finally {
         setLoading(false)
       }
@@ -276,7 +291,7 @@ export default function AdminDashboard() {
                         <td className="p-2">{u.mos || ''}</td>
                         <td className="p-2">{u.unit_id || ''}</td>
                         <td className="p-2">{u.company_id || ''}</td>
-                        <td className="p-2">{u.platoon_id || ''}</td>
+                        <td className="p-2">{sectionDisplayMap[String(u.platoon_id)] || u.platoon_id || ''}</td>
                         <td className="p-2">{u.org_role || ''}</td>
                       </tr>
                     ))}

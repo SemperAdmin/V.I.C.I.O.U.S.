@@ -115,13 +115,13 @@ export default function Settings() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl">
-          <div className="flex border-b border-github-border">
-            <button onClick={() => setActiveTab('profile')} className={`px-4 py-3 text-sm ${activeTab==='profile'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Profile</button>
-            <button onClick={() => setActiveTab('notifications')} className={`px-4 py-3 text-sm ${activeTab==='notifications'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Notifications</button>
-            <button onClick={() => setActiveTab('editor')} className={`px-4 py-3 text-sm ${activeTab==='editor'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Editor</button>
-            <button onClick={() => setActiveTab('contact')} className={`px-4 py-3 text-sm ${activeTab==='contact'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Contact Info</button>
-            <button onClick={() => setActiveTab('password')} className={`px-4 py-3 text-sm ${activeTab==='password'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Password</button>
+        <div className="bg-github-gray bg-opacity-10 border border-github-border rounded-xl overflow-hidden">
+          <div className="flex border-b border-github-border overflow-x-auto">
+            <button onClick={() => setActiveTab('profile')} className={`px-4 py-3 text-sm whitespace-nowrap ${activeTab==='profile'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Profile</button>
+            <button onClick={() => setActiveTab('notifications')} className={`px-4 py-3 text-sm whitespace-nowrap ${activeTab==='notifications'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Notifications</button>
+            <button onClick={() => setActiveTab('editor')} className={`px-4 py-3 text-sm whitespace-nowrap ${activeTab==='editor'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Editor</button>
+            <button onClick={() => setActiveTab('contact')} className={`px-4 py-3 text-sm whitespace-nowrap ${activeTab==='contact'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Contact Info</button>
+            <button onClick={() => setActiveTab('password')} className={`px-4 py-3 text-sm whitespace-nowrap ${activeTab==='password'?'text-white border-b-2 border-github-blue':'text-gray-400'}`}>Password</button>
           </div>
           <div className="p-6 space-y-8">
             {activeTab === 'profile' && (
