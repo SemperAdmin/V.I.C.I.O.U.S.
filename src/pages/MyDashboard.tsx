@@ -422,7 +422,7 @@ export default function MyDashboard() {
   }, [user?.unit_id, user?.platoon_id])
 
   useEffect(() => {
-    const opts = (UNITS || []).map(u => ({ id: `${u.uic}-${u.ruc}-${u.mcc}`, name: u.unitName }))
+    const opts = (UNITS || []).map(u => ({ id: `${u.uic}-${u.ruc}-${u.mcc}`, name: `${u.unitName} (${u.mcc})` }))
     const unique = Array.from(new Map(opts.map(o => [o.id, o])).values())
     setUnitOptions(unique)
     setSelectedUnit(user?.unit_id || unique[0]?.id || '')

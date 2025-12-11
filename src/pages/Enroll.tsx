@@ -203,7 +203,7 @@ export default function Enroll() {
             >
               {unitOptions.map(u => (
                 <option key={`${u.uic}-${u.ruc}`} value={`${u.uic}-${u.ruc}`}>
-                  {u.unitName} {u.uic && `(${u.uic})`}
+                  {u.unitName} ({u.mcc})
                 </option>
               ))}
             </select>
