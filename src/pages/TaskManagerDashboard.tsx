@@ -28,6 +28,9 @@ export default function TaskManagerDashboard() {
   const [inboundCompletedGroups, setInboundCompletedGroups] = useState<Record<string, string[]>>({})
   const [inboundSectionGroupsCompleted, setInboundSectionGroupsCompleted] = useState<Record<string, Array<{ subTaskId: string; members: string[] }>>>({})
   const [inboundView, setInboundView] = useState<'Pending' | 'Completed'>('Pending')
+  const [outboundView, setOutboundView] = useState<'Pending' | 'Completed'>('Pending')
+  const [outboundCompletedGroups, setOutboundCompletedGroups] = useState<Record<string, string[]>>({})
+  const [outboundSectionGroupsCompleted, setOutboundSectionGroupsCompleted] = useState<Record<string, Array<{ subTaskId: string; members: string[] }>>>({})
   const [sectionLabel, setSectionLabel] = useState('')
   const [scopedTasks, setScopedTasks] = useState<Array<{ section: string; description: string; location?: string; instructions?: string; responsible: string }>>([])
   const [scopedSubTasks, setScopedSubTasks] = useState<UnitSubTask[]>([])
@@ -169,6 +172,7 @@ export default function TaskManagerDashboard() {
       const inboundByTask: Record<string, Set<string>> = {}
       const inboundCompletedByTask: Record<string, Set<string>> = {}
       const outboundByTask: Record<string, Set<string>> = {}
+      const outboundCompletedByTask: Record<string, Set<string>> = {}
       const allPendingByTask: Record<string, Set<string>> = {}
       const allCompletedByTask: Record<string, Set<string>> = {}
       try {
@@ -202,6 +206,10 @@ export default function TaskManagerDashboard() {
                 if (!inboundCompletedByTask[subId]) inboundCompletedByTask[subId] = new Set()
                 inboundCompletedByTask[subId].add(memberId)
               }
+              if (kind === 'Outbound' && outboundTaskIds.has(subId)) {
+                if (!outboundCompletedByTask[subId]) outboundCompletedByTask[subId] = new Set()
+                outboundCompletedByTask[subId].add(memberId)
+              }
             }
           }
         }
@@ -224,6 +232,8 @@ export default function TaskManagerDashboard() {
                 if (inboundByTask[subId]) inboundByTask[subId].delete(p.user_id)
               }
               if (isOutbound) {
+                if (!outboundCompletedByTask[subId]) outboundCompletedByTask[subId] = new Set()
+                outboundCompletedByTask[subId].add(p.user_id)
                 if (outboundByTask[subId]) outboundByTask[subId].delete(p.user_id)
               }
               if (allPendingByTask[subId]) allPendingByTask[subId].delete(p.user_id)
@@ -248,6 +258,8 @@ export default function TaskManagerDashboard() {
       setInboundGroups(inboundGroupsArr)
       const inboundCompletedGroupsArr = Object.fromEntries(Object.entries(inboundCompletedByTask).map(([k, v]) => [k, Array.from(v)]))
       setInboundCompletedGroups(inboundCompletedGroupsArr)
+      const outboundCompletedGroupsArr = Object.fromEntries(Object.entries(outboundCompletedByTask).map(([k, v]) => [k, Array.from(v)]))
+      setOutboundCompletedGroups(outboundCompletedGroupsArr)
       setOutboundGroups(Object.fromEntries(Object.entries(outboundByTask).map(([k, v]) => [k, Array.from(v)])))
       setPendingByTask(Object.fromEntries(Object.entries(allPendingByTask).map(([k, v]) => [k, Array.from(v)])))
       setCompletedByTask(Object.fromEntries(Object.entries(allCompletedByTask).map(([k, v]) => [k, Array.from(v)])))
@@ -281,6 +293,21 @@ export default function TaskManagerDashboard() {
         secGroupedCompleted[secName].push({ subTaskId, members })
       }
       setInboundSectionGroupsCompleted(secGroupedCompleted)
+
+      const obSecGroupedCompleted: Record<string, Array<{ subTaskId: string; members: string[] }>> = {}
+      for (const [subTaskId, members] of Object.entries(outboundCompletedGroupsArr)) {
+        const sid = subTaskMap[subTaskId]?.section_id
+        const key = sid ? String(sid) : ''
+        let secName = key ? (sectionDisplayMap[key] || key) : ''
+        if (!secName) {
+          const label = taskLabels[subTaskId]
+          const secCode = label?.section_name || ''
+          secName = secCode ? (sectionDisplayMap[secCode] || secCode) : (sectionLabel || 'Section')
+        }
+        if (!obSecGroupedCompleted[secName]) obSecGroupedCompleted[secName] = []
+        obSecGroupedCompleted[secName].push({ subTaskId, members })
+      }
+      setOutboundSectionGroupsCompleted(obSecGroupedCompleted)
 
       // Build scoped tasks list similar to Unit Admin tasks table, but filtered to user's section
       let userSectionId: number | null = null
@@ -486,7 +513,7 @@ export default function TaskManagerDashboard() {
                       </div>
                     )
                   })}
-                </div>
+                  </div>
                 )}
 
                 {inboundView === 'Completed' && (
@@ -568,66 +595,109 @@ export default function TaskManagerDashboard() {
 
             {tab === 'outbound' && (
               <div className="space-y-6">
-                {Object.entries(outboundGroups).map(([subTaskId, members]) => {
-                  const sid = subTaskMap[subTaskId]?.section_id
-                  const key = sid ? String(sid) : ''
-                  const secDisplay = key ? (sectionDisplayMap[key] || key) : ''
-                  const label = taskLabels[subTaskId]
-                  const title = `${secDisplay} - ${label?.description || subTaskId}`
-                  return (
-                    <div key={subTaskId} className="border border-github-border rounded-xl">
-                      <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
-                        <h3 className="text-white text-sm">{title}</h3>
-                        <button
-                          className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs hover:bg-opacity-30"
-                          onClick={() => setDetailsOpen(prev => ({ ...prev, [subTaskId]: !prev[subTaskId] }))}
-                        >
-                          Details
-                        </button>
-                      </div>
-                      {detailsOpen[subTaskId] && (
-                        <div className="px-4 py-3 text-sm text-gray-300 border-b border-github-border">
-                          <div><span className="text-gray-400">Location:</span> {subTaskMap[subTaskId]?.location ? (<a href={subTaskMap[subTaskId]?.map_url || googleMapsLink(subTaskMap[subTaskId]!.location!)} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{subTaskMap[subTaskId]!.location}</a>) : ''}</div>
-                          <div className="mb-1"><span className="text-gray-400">Instructions:</span> {subTaskMap[subTaskId]?.instructions || ''}</div>
-                          <div className="mt-1"><span className="text-gray-400">Completion:</span> {[subTaskMap[subTaskId]?.completion_kind, subTaskMap[subTaskId]?.completion_label, (subTaskMap[subTaskId]?.completion_options || []).join('/')].filter(Boolean).join(' • ')}</div>
+                <div className="flex justify-end">
+                  <div className="inline-flex rounded border border-github-border overflow-hidden">
+                    <button onClick={() => setOutboundView('Pending')} className={`px-3 py-1 text-xs ${outboundView === 'Pending' ? 'bg-github-blue text-white' : 'bg-github-gray bg-opacity-20 text-gray-300'}`}>Pending</button>
+                    <button onClick={() => setOutboundView('Completed')} className={`px-3 py-1 text-xs ${outboundView === 'Completed' ? 'bg-github-blue text-white' : 'bg-github-gray bg-opacity-20 text-gray-300'}`}>Completed</button>
+                  </div>
+                </div>
+
+                {outboundView === 'Pending' && (
+                  <div className="space-y-6">
+                  {scopedSubTasks.map(t => {
+                    const subTaskId = t.sub_task_id
+                    const label = taskLabels[subTaskId]
+                    const taskDesc = label?.description || subTaskId
+                    const pendingMembers = (outboundGroups[subTaskId] || [])
+                    const pendingCount = pendingMembers.length
+                    const sid = subTaskMap[subTaskId]?.section_id
+                    const key = sid ? String(sid) : ''
+                    let secDisplay = key ? (sectionDisplayMap[key] || key) : ''
+                    if (!secDisplay) {
+                      const secCode = label?.section_name || ''
+                      secDisplay = secCode ? (sectionDisplayMap[secCode] || secCode) : (sectionLabel || '')
+                    }
+                    return (
+                      <div key={`ob-bytask-${subTaskId}`} className="border border-github-border rounded-xl">
+                        <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
+                          <h3 className="text-white text-sm">{taskDesc}</h3>
+                          <span className={`inline-flex items-center px-2 py-0.5 text-xs border border-github-border rounded bg-yellow-700 bg-opacity-30 text-yellow-300`}>{pendingCount}</span>
                         </div>
-                      )}
-                      <div className="p-4">
-                        <table className="min-w-full text-sm">
-                          <thead className="text-gray-400">
-                            <tr>
-                              <th className="text-left p-2">Type</th>
-                              <th className="text-left p-2">Member</th>
-                              <th className="text-left p-2">EDIPI</th>
-                              <th className="text-left p-2">Company</th>
-                              <th className="text-left p-2">Section</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {members.map(mid => {
-                              const m = memberMap[mid]
-                              const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
-                              const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
-                              const edipi = m?.edipi || mid
-                              const company = m?.company_id || ''
-                              const secKey = m?.platoon_id ? String(m.platoon_id) : ''
-                              const secLabel = sectionDisplayMap[secKey] || secKey || ''
-                              return (
-                                <tr key={`${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
-                                  <td className="p-2">{formNameByTask[subTaskId] || 'Outbound'}</td>
-                                  <td className="p-2">{memberDisp}</td>
-                                  <td className="p-2">{edipi}</td>
-                                  <td className="p-2">{company}</td>
-                                  <td className="p-2">{secLabel}</td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
+                        <div className="p-4">
+                          <table className="min-w-full text-sm">
+                            <thead className="text-gray-400">
+                              <tr>
+                                <th className="text-left p-2">Type</th>
+                                <th className="text-left p-2">Member</th>
+                                <th className="text-left p-2">EDIPI</th>
+                                <th className="text-left p-2">Company</th>
+                                <th className="text-left p-2">Section</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pendingMembers.map(mid => {
+                                const m = memberMap[mid]
+                                const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
+                                const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
+                                const edipi = m?.edipi || mid
+                                const company = m?.company_id || ''
+                                return (
+                                  <tr
+                                    key={`ob-bytask-${subTaskId}-${mid}`}
+                                    className="border-t border-github-border text-gray-300 cursor-pointer"
+                                    onClick={() => {
+                                      setActionSubTaskId(subTaskId)
+                                      setActionMemberId(mid)
+                                      const unitKey = (user?.unit_id || '').includes('-') ? (user?.unit_id as string).split('-')[1] : (user?.unit_id as string)
+                                      const sid = subTaskMap[subTaskId]?.section_id
+                                      const key = sid ? `section_instructions:${unitKey}:${sid}` : ''
+                                      try { setActionSectionInstructions(key ? (localStorage.getItem(key) || '') : '') } catch { setActionSectionInstructions('') }
+                                      setActionCompletionValue('')
+                                      setActionOpen(true)
+                                    }}
+                                  >
+                                    <td className="p-2">{formNameByTask[subTaskId] || 'Outbound'}</td>
+                                    <td className="p-2">{memberDisp}</td>
+                                    <td className="p-2">{edipi}</td>
+                                    <td className="p-2">{company}</td>
+                                    <td className="p-2">{secDisplay}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                            
+                          </table>
+                        </div>
                       </div>
+                    )
+                  })}
+                  </div>
+                )}
+                {outboundView === 'Completed' && (
+                  <div className="border border-github-border rounded-xl">
+                    <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
+                      <h3 className="text-white text-sm">{sectionLabel || 'Section'}</h3>
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs border border-github-border rounded bg-green-700 bg-opacity-30 text-green-300">Completed</span>
                     </div>
-                  )
-                })}
+                    <div className="p-4">
+                      <table className="min-w-full text-sm">
+                        <thead className="text-gray-400">
+                          <tr>
+                            <th className="text-left p-2">Task</th>
+                            <th className="text-left p-2">Member</th>
+                            <th className="text-left p-2">EDIPI</th>
+                            <th className="text-left p-2">Company</th>
+                            <th className="text-left p-2">Section</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
+
               </div>
             )}
 

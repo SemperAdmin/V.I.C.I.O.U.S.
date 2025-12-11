@@ -29,6 +29,8 @@ export default function MyDashboard() {
   const [myOutbound, setMyOutbound] = useState<MyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'inbound' | 'outbound'>('inbound')
+  const [inboundView, setInboundView] = useState<'Pending' | 'Completed'>('Pending')
+  const [outboundView, setOutboundView] = useState<'Pending' | 'Completed'>('Pending')
   const [createOpen, setCreateOpen] = useState(false)
   const [newKind, setNewKind] = useState<'Inbound' | 'Outbound'>('Inbound')
   const [forms, setForms] = useState<UnitForm[]>([])
@@ -44,6 +46,7 @@ export default function MyDashboard() {
   const [archivedCleared, setArchivedCleared] = useState<{ member_user_id: string; sub_task_id: string; cleared_at_timestamp?: string }[]>([])
   const [inboundPendingRows, setInboundPendingRows] = useState<Array<{ formName: string; createdAt?: string; description: string; section: string; location?: string }>>([])
   const [inboundCompletedRows, setInboundCompletedRows] = useState<Array<{ formName: string; createdAt?: string; description: string; section: string; location?: string; instructions?: string; clearedBy?: string }>>([])
+  const [outboundPendingRows, setOutboundPendingRows] = useState<Array<{ formName: string; createdAt?: string; description: string; section: string; location?: string }>>([])
   const [subTaskMap, setSubTaskMap] = useState<Record<string, UnitSubTask>>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [arrivalDate, setArrivalDate] = useState<string>('')
@@ -57,6 +60,29 @@ export default function MyDashboard() {
     const pendingSet = new Set(memberTasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
     const list: Array<{ formName: string; status: 'In_Progress' | 'Completed'; completed: number; total: number; sections: string[] }> = []
     for (const f of forms.filter(ff => ff.kind === 'Inbound')) {
+      const rc = formCompletion[f.id]
+      const total = rc?.total ?? f.task_ids.length
+      const completed = rc?.completed ?? 0
+      const status = total > 0 && completed === total ? 'Completed' : 'In_Progress'
+      if (status === 'Completed') continue
+      const sects = new Set<string>()
+      for (const tid of f.task_ids) {
+        const label = taskLabels[tid]
+        const code = label?.section_name || ''
+        const name = code ? (sectionDisplayMap[code] || code) : ''
+        const isIncomplete = pendingSet.has(tid) || (!clearedSet.has(tid) && !pendingSet.has(tid))
+        if (isIncomplete) sects.add(name)
+      }
+      list.push({ formName: f.name, status, completed, total, sections: Array.from(sects).filter(Boolean) })
+    }
+    return list
+  }, [forms, formCompletion, memberTasks, taskLabels, sectionDisplayMap])
+
+  const outboundFormsPendingSummary = useMemo(() => {
+    const clearedSet = new Set(memberTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+    const pendingSet = new Set(memberTasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
+    const list: Array<{ formName: string; status: 'In_Progress' | 'Completed'; completed: number; total: number; sections: string[] }> = []
+    for (const f of forms.filter(ff => ff.kind === 'Outbound')) {
       const rc = formCompletion[f.id]
       const total = rc?.total ?? f.task_ids.length
       const completed = rc?.completed ?? 0
@@ -93,6 +119,25 @@ export default function MyDashboard() {
       .concat((subsFallback || []).map(s => ({ key: `sub-${s.id}`, name: s.form_name, unit: s.unit_id, created: s.created_at, formId: s.form_id || (forms.find(f => f.name === s.form_name && f.kind === 'Inbound')?.id || 0), kind: 'Inbound' as const })))
     return rows
   }, [user, myInbound, mySubmissions, forms, formCompletion, memberTasks])
+
+  const outboundPendingListRows = useMemo(() => {
+    if (!user) return [] as Array<{ key: string; name: string; unit: string; created: string; formId: number; kind: 'Outbound' }>
+    const outboundPending = myOutbound.filter(i => {
+      const fid = i.form_id ?? (forms.find(f => f.name === i.name && f.kind === 'Outbound')?.id || 0)
+      const rc = formCompletion[fid]
+      return rc ? (rc.completed < rc.total) : true
+    })
+    const subsFallback = (!outboundPending.length ? mySubmissions.filter(s => s.kind === 'Outbound').filter(s => {
+      const ids = Array.isArray(s.task_ids) ? (s.task_ids || []) : (s.tasks || []).map(t => t.sub_task_id)
+      const total = ids.length
+      const cleared = new Set(memberTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+      const done = ids.filter((id: string) => cleared.has(id)).length
+      return total > 0 && done < total
+    }) : [])
+    const rows = outboundPending.map(i => ({ key: `out-${i.id}`, name: i.name, unit: user?.unit_id || '', created: i.created_at, formId: i.form_id ?? (forms.find(f => f.name === i.name && f.kind === 'Outbound')?.id || 0), kind: 'Outbound' as const }))
+      .concat((subsFallback || []).map(s => ({ key: `sub-${s.id}`, name: s.form_name, unit: s.unit_id, created: s.created_at, formId: s.form_id || (forms.find(f => f.name === s.form_name && f.kind === 'Outbound')?.id || 0), kind: 'Outbound' as const })))
+    return rows
+  }, [user, myOutbound, mySubmissions, forms, formCompletion, memberTasks])
 
   const createPreview = (form: UnitForm, kind: 'Inbound' | 'Outbound', tasks: { sub_task_id: string; description: string; status: 'Pending' }[]): MyFormSubmission => {
     const preview: MyFormSubmission = {
@@ -279,6 +324,46 @@ export default function MyDashboard() {
             }
           } catch (err) { console.error(err) }
           setInboundCompletedRows(rows)
+          // Build outbound pending rows by section and submissions (mirrors inbound)
+          const formsOutbound = unitForms.filter(f => f.kind === 'Outbound')
+          const pRowsOut: Array<{ formName: string; createdAt?: string; description: string; section: string; location?: string }> = []
+          for (const f of formsOutbound) {
+            for (const tid of f.task_ids) {
+              if (!pendingIds.has(tid)) continue
+              const label = taskLabels[tid]
+              const code = label?.section_name || ''
+              const sec = code ? (sectionDisplayMap[code] || code) : ''
+              const loc = map[tid]?.location || ''
+              pRowsOut.push({ formName: f.name, createdAt: undefined, description: (label?.description || tid), section: sec, location: loc || undefined })
+            }
+          }
+          try {
+            const subsOb = await listSubmissions(user.user_id)
+            const outboundSubs = subsOb.filter(s => s.kind === 'Outbound')
+            for (const s of outboundSubs) {
+              for (const t of s.tasks) {
+                if (t.status === 'Pending') {
+                  const label = taskLabels[t.sub_task_id]
+                  const code = label?.section_name || ''
+                  const sec = code ? (sectionDisplayMap[code] || code) : (subTaskMap[t.sub_task_id]?.section_id ? (sectionDisplayMap[String(subTaskMap[t.sub_task_id]?.section_id)] || '') : '')
+                  const loc = subTaskMap[t.sub_task_id]?.location || ''
+                  pRowsOut.push({ formName: s.form_name, createdAt: s.created_at, description: (label?.description || t.description || t.sub_task_id), section: sec, location: loc || undefined })
+                }
+              }
+            }
+          } catch (err) { console.error(err) }
+          if (pRowsOut.length === 0) {
+            for (const f of formsOutbound) {
+              for (const tid of f.task_ids) {
+                const label = taskLabels[tid]
+                const code = label?.section_name || ''
+                const sec = code ? (sectionDisplayMap[code] || code) : ''
+                const loc = (map[tid] as any)?.location || ''
+                pRowsOut.push({ formName: f.name, createdAt: undefined, description: (label?.description || tid), section: sec, location: loc || undefined })
+              }
+            }
+          }
+          setOutboundPendingRows(pRowsOut)
         } catch (err) { console.error(err) }
       }
       setLoading(false)
@@ -368,10 +453,15 @@ export default function MyDashboard() {
           <div className="p-6 space-y-6">
             {activeTab === 'inbound' && (
               <div className="space-y-6">
+                <div className="flex justify-end">
+                  <div className="inline-flex rounded border border-github-border overflow-hidden">
+                    <button onClick={() => setInboundView('Pending')} className={`px-3 py-1 text-xs ${inboundView === 'Pending' ? 'bg-github-blue text-white' : 'bg-github-gray bg-opacity-20 text-gray-300'}`}>Pending</button>
+                    <button onClick={() => setInboundView('Completed')} className={`px-3 py-1 text-xs ${inboundView === 'Completed' ? 'bg-github-blue text-white' : 'bg-github-gray bg-opacity-20 text-gray-300'}`}>Completed</button>
+                  </div>
+                </div>
                 
-                
+                {inboundView === 'Pending' && (
                 <div>
-                  <h2 className="text-white text-lg mb-3">Pending</h2>
                   {(myInbound.length || mySubmissions.filter(s => s.kind === 'Inbound').length) ? (
                     <div className="mt-4">
                       <div className="grid grid-cols-6 text-gray-400 text-sm mb-2">
@@ -383,7 +473,18 @@ export default function MyDashboard() {
                         <div className="text-left p-2">Action</div>
                       </div>
                     <div className="text-sm">
-                      {pendingListRows.length ? pendingListRows.map(ri => (
+                      {pendingListRows.length ? pendingListRows.filter(ri => {
+                          const fid = ri.formId
+                          const subs = mySubmissions.filter(s => s.form_id === fid && s.kind === ri.kind)
+                          const latest = subs.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
+                          const ids = Array.isArray(latest?.task_ids)
+                            ? (latest!.task_ids || [])
+                            : (latest?.tasks?.map(t => t.sub_task_id) || (forms.find(f => f.id === fid)?.task_ids || []))
+                          const total = ids.length
+                          const cleared = new Set(memberTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                          const done = ids.filter((id: string) => cleared.has(id)).length
+                          return total > 0 && done < total
+                        }).map(ri => (
                           <div key={ri.key} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300">
                             <div className="p-2">{ri.name}</div>
                             <div className="p-2">{ri.unit}</div>
@@ -490,7 +591,7 @@ export default function MyDashboard() {
                           <div className="text-left p-2">Action</div>
                         </div>
                         <div className="text-sm">
-                          {inboundFormsPendingSummary.map((r, i) => (
+                          {inboundFormsPendingSummary.filter(r => r.completed < r.total).map((r, i) => (
                             <div key={`sum-${i}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
                               <div className="p-2">{r.formName}</div>
                               <div className="p-2">{(() => {
@@ -567,18 +668,19 @@ export default function MyDashboard() {
                       <p className="text-gray-400 text-sm">No inbound items</p>
                     )
                   )}
-                </div>
+                </div>)}
                 
+                {inboundView === 'Completed' && (
                 <div className="mt-6">
-                  <h2 className="text-white text-lg mb-3">Completed</h2>
                   <div className="mt-4">
-                    <div className="grid grid-cols-5 text-gray-400 text-sm mb-2">
-                      <div className="text-left p-2">Form</div>
-                      <div className="text-left p-2">Unit</div>
-                      <div className="text-left p-2">Created</div>
-                      <div className="text-left p-2">Done/Total</div>
-                      <div className="text-left p-2">Action</div>
-                    </div>
+                      <div className="grid grid-cols-6 text-gray-400 text-sm mb-2">
+                        <div className="text-left p-2">Form</div>
+                        <div className="text-left p-2">Unit</div>
+                        <div className="text-left p-2">EDIPI</div>
+                        <div className="text-left p-2">Created</div>
+                        <div className="text-left p-2">Done/Total</div>
+                        <div className="text-left p-2">Action</div>
+                      </div>
                     <div className="text-sm">
                       {(() => {
                         const clearedSet = new Set(memberTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
@@ -595,9 +697,10 @@ export default function MyDashboard() {
                         })
                         if (!inboundCompleted.length) return (<div className="text-gray-400 text-sm">None</div>)
                         return inboundCompleted.map(i => (
-                          <div key={`in-copy-${i.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
+                          <div key={`in-copy-${i.id}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300">
                             <div className="p-2">{i.name}</div>
                             <div className="p-2">{user?.unit_id || ''}</div>
+                            <div className="p-2">{user?.edipi || ''}</div>
                             <div className="p-2">{new Date(i.created_at).toLocaleDateString()}</div>
                             <div className="p-2">{(() => {
                               const fid = i.form_id ?? (forms.find(f => f.name === i.name && f.kind === 'Inbound')?.id || 0)
@@ -671,36 +774,43 @@ export default function MyDashboard() {
                     </div>
                   </div>
                 </div>
-                
+                )}
                 
               </div>
             )}
             {activeTab === 'outbound' && (
               <div className="space-y-6">
+                <div className="flex justify-end">
+                  <div className="inline-flex rounded border border-github-border overflow-hidden">
+                    <button onClick={() => setOutboundView('Pending')} className={`px-3 py-1 text-xs ${outboundView === 'Pending' ? 'bg-github-blue text-white' : 'bg-github-gray bg-opacity-20 text-gray-300'}`}>Pending</button>
+                    <button onClick={() => setOutboundView('Completed')} className={`px-3 py-1 text-xs ${outboundView === 'Completed' ? 'bg-github-blue text-white' : 'bg-github-gray bg-opacity-20 text-gray-300'}`}>Completed</button>
+                  </div>
+                </div>
+                {outboundView === 'Pending' && (
                 <div>
-                  <h2 className="text-white text-lg mb-3">My Items</h2>
-                  {myOutbound.length ? (
+                  {(myOutbound.length || mySubmissions.filter(s => s.kind === 'Outbound').length) ? (
                     <div className="mt-4">
                       <div className="grid grid-cols-6 text-gray-400 text-sm mb-2">
                         <div className="text-left p-2">Form</div>
                         <div className="text-left p-2">Unit</div>
+                        <div className="text-left p-2">EDIPI</div>
                         <div className="text-left p-2">Created</div>
                         <div className="text-left p-2">Done/Total</div>
                         <div className="text-left p-2">Action</div>
                       </div>
                       <div className="text-sm">
-                        {myOutbound.map(i => (
-                          <div key={`out-${i.id}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300">
-                            <div className="p-2">{i.name}</div>
-                            <div className="p-2">{user?.unit_id || ''}</div>
+                        {outboundPendingListRows.length ? outboundPendingListRows.map(ri => (
+                          <div key={ri.key} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300">
+                            <div className="p-2">{ri.name}</div>
+                            <div className="p-2">{ri.unit}</div>
                             <div className="p-2">{user?.edipi || ''}</div>
-                            <div className="p-2">{new Date(i.created_at).toLocaleDateString()}</div>
+                            <div className="p-2">{new Date(ri.created).toLocaleDateString()}</div>
                             <div className="p-2">{(() => {
-                              const fid = i.form_id ?? (forms.find(f => f.name === i.name && f.kind === 'Outbound')?.id || 0)
-                              const subs = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound')
+                              const fid = ri.formId
+                              const subs = mySubmissions.filter(s => s.form_id === fid && s.kind === ri.kind)
                               const latest = subs.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
-                              const ids = Array.isArray((latest as any)?.task_ids)
-                                ? (latest as any).task_ids
+                              const ids = Array.isArray(latest?.task_ids)
+                                ? (latest!.task_ids || [])
                                 : (latest?.tasks?.map(t => t.sub_task_id) || (forms.find(f => f.id === fid)?.task_ids || []))
                               const total = ids.length
                               const cleared = new Set(memberTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
@@ -711,8 +821,64 @@ export default function MyDashboard() {
                               <button
                                 className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                                 onClick={async () => {
+                                  if (!user) return
+                                  const form = forms.find(f => f.id === ri.formId) || forms.find(f => f.name === ri.name && f.kind === ri.kind)
+                                  if (!form) return
+                                  let tasks: { sub_task_id: string; description: string; status: 'Pending' }[] = []
+                                  try {
+                                    const progress = await getProgressByMember(user.user_id)
+                                    const pendingSet = new Set(progress.progress_tasks.filter(t => t.status === 'Pending').map(t => t.sub_task_id))
+                                    tasks = form.task_ids
+                                      .filter(tid => pendingSet.has(tid))
+                                      .map(tid => ({
+                                        sub_task_id: tid,
+                                        description: (taskLabels[tid]?.description || tid),
+                                        status: 'Pending' as const,
+                                      }))
+                                  } catch (err) { console.error(err) }
+                                  setSubmissionPreview(createPreview(form, 'Outbound', tasks))
+                                }}
+                              >
+                                View
+                              </button>
+                            </div>
+                          </div>
+                        )) : (
+                          <p className="text-gray-400 text-sm">No outbound items</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    outboundFormsPendingSummary.length ? (
+                      <div className="mt-4">
+                        <div className="grid grid-cols-5 text-gray-400 text-sm mb-2">
+                          <div className="text-left p-2">Form</div>
+                          <div className="text-left p-2">Unit</div>
+                          <div className="text-left p-2">Departure</div>
+                          <div className="text-left p-2">Done/Total</div>
+                          <div className="text-left p-2">Action</div>
+                        </div>
+                        <div className="text-sm">
+                          {outboundFormsPendingSummary.filter(r => r.completed < r.total).map((r, i) => (
+                            <div key={`ob-sum-${i}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
+                              <div className="p-2">{r.formName}</div>
+                              <div className="p-2">{(() => {
+                                const fid = forms.find(f => f.name === r.formName && f.kind === 'Outbound')?.id || 0
+                                const latest = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound').sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
+                                return latest?.unit_id || (user?.unit_id || '')
+                              })()}</div>
+                              <div className="p-2">{(() => {
+                                const fid = forms.find(f => f.name === r.formName && f.kind === 'Outbound')?.id || 0
+                                const latest = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound').sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
+                                return latest?.departure_date || (departureDate || new Date().toISOString().slice(0,10))
+                              })()}</div>
+                              <div className="p-2">{`${r.completed}/${r.total}`}</div>
+                              <div className="p-2">
+                                <button
+                                  className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                                  onClick={async () => {
                                     if (!user) return
-                                    const form = i.form_id ? forms.find(f => f.id === i.form_id) : forms.find(f => f.name === i.name && f.kind === 'Outbound')
+                                    const form = forms.find(f => f.name === r.formName && f.kind === 'Outbound')
                                     if (!form) return
                                     let tasks: { sub_task_id: string; description: string; status: 'Pending' }[] = []
                                     try {
@@ -722,47 +888,146 @@ export default function MyDashboard() {
                                         .filter(tid => pendingSet.has(tid))
                                         .map(tid => ({
                                           sub_task_id: tid,
-                                          description: `${(taskLabels[tid]?.section_name ? taskLabels[tid]?.section_name + ' - ' : '')}${(taskLabels[tid]?.description || tid)}`,
+                                          description: (taskLabels[tid]?.description || tid),
                                           status: 'Pending' as const,
                                         }))
                                     } catch (err) { console.error(err) }
-                                    // If no pending tasks, leave empty — do not fallback to all tasks
+                                    const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                    for (const t of tasks) {
+                                      const label = taskLabels[t.sub_task_id]
+                                      const secCode = label?.section_name || ''
+                                      const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                                      const st = subTaskMap[t.sub_task_id]
+                                      if (!pendingBySection[secName]) pendingBySection[secName] = []
+                                      pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                    }
+                                    setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks))
                                   }}
                                 >
                                   View
                                 </button>
                               </div>
-                          </div>
-                        ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 text-sm">No outbound items</p>
+                    )
+                  )}
+                </div>)}
+                {outboundView === 'Completed' && (
+                <div>
+                  {myOutbound.length ? (
+                    <div className="mt-4">
+                      <div className="grid grid-cols-6 text-gray-400 text-sm mb-2">
+                        <div className="text-left p-2">Form</div>
+                        <div className="text-left p-2">Unit</div>
+                        <div className="text-left p-2">EDIPI</div>
+                        <div className="text-left p-2">Created</div>
+                        <div className="text-left p-2">Done/Total</div>
+                        <div className="text-left p-2">Action</div>
+                      </div>
+                      <div className="text-sm">
+                        {(() => {
+                          const clearedSet = new Set(memberTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                          const completedRows = myOutbound.filter(i => {
+                            const fid = i.form_id ?? (forms.find(f => f.name === i.name && f.kind === 'Outbound')?.id || 0)
+                            const subs = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound')
+                            const latest = subs.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
+                            const ids = Array.isArray((latest as any)?.task_ids)
+                              ? (latest as any).task_ids
+                              : (latest?.tasks?.map(t => t.sub_task_id) || (forms.find(f => f.id === fid)?.task_ids || []))
+                            const total = ids.length
+                            const done = ids.filter((id: string) => clearedSet.has(id)).length
+                            return total > 0 && done === total
+                          })
+                          if (!completedRows.length) return (<div className="text-gray-400 text-sm">None</div>)
+                          return completedRows.map(i => (
+                            <div key={`out-${i.id}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300">
+                              <div className="p-2">{i.name}</div>
+                              <div className="p-2">{user?.unit_id || ''}</div>
+                              <div className="p-2">{user?.edipi || ''}</div>
+                              <div className="p-2">{new Date(i.created_at).toLocaleDateString()}</div>
+                              <div className="p-2">{(() => {
+                                const fid = i.form_id ?? (forms.find(f => f.name === i.name && f.kind === 'Outbound')?.id || 0)
+                                const subs = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound')
+                                const latest = subs.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
+                                const ids = Array.isArray((latest as any)?.task_ids)
+                                  ? (latest as any).task_ids
+                                  : (latest?.tasks?.map(t => t.sub_task_id) || (forms.find(f => f.id === fid)?.task_ids || []))
+                                const total = ids.length
+                                const cleared = new Set(memberTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                                const done = ids.filter((id: string) => cleared.has(id)).length
+                                return `${done}/${total}`
+                              })()}</div>
+                              <div className="p-2">
+                                <button
+                                  className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                                  onClick={async () => {
+                                    if (!user) return
+                                    const form = i.form_id ? forms.find(f => f.id === i.form_id) : forms.find(f => f.name === i.name && f.kind === 'Outbound')
+                                    if (!form) return
+                                    let tasks: { sub_task_id: string; description: string; status: 'Pending' }[] = []
+                                    try {
+                                      const progress = await getProgressByMember(user.user_id)
+                                      const clearedSet2 = new Set(progress.progress_tasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                                      tasks = form.task_ids
+                                        .filter(tid => !clearedSet2.has(tid))
+                                        .map(tid => ({
+                                          sub_task_id: tid,
+                                          description: (taskLabels[tid]?.description || tid),
+                                          status: 'Pending' as const,
+                                        }))
+                                      const completedSet = new Set(progress.progress_tasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                                      const completedBySection: Record<string, { text: string; note?: string; at?: string }[]> = {}
+                                      for (const tid of form.task_ids) {
+                                        if (!completedSet.has(tid)) continue
+                                        const label = taskLabels[tid]
+                                        const secCode = label?.section_name || ''
+                                        const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                                        const desc = (label?.description || tid)
+                                        const entry = (progress.progress_tasks || []).find(t => String(t.sub_task_id) === String(tid)) as any
+                                        const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
+                                        const row = { text: desc, note: lastLog?.note, at: (lastLog?.at || (entry as any)?.cleared_at_timestamp) }
+                                        if (!completedBySection[secName]) completedBySection[secName] = []
+                                        completedBySection[secName].push(row)
+                                      }
+                                      setPreviewCompletedBySection(completedBySection)
+                                      const consolidated: Array<{ section: string; task: string; note?: string; at?: string }> = []
+                                      for (const [sec, rows] of Object.entries(completedBySection)) {
+                                        for (const r of rows) consolidated.push({ section: sec, task: r.text, note: r.note, at: r.at })
+                                      }
+                                      setPreviewCompletedRows(consolidated)
+                                    } catch (err) { console.error(err) }
+                                    const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                    for (const t of tasks) {
+                                      const label = taskLabels[t.sub_task_id]
+                                      const secCode = label?.section_name || ''
+                                      const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
+                                      const st = subTaskMap[t.sub_task_id]
+                                      if (!pendingBySection[secName]) pendingBySection[secName] = []
+                                      pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                    }
+                                    setPreviewPendingBySection(pendingBySection)
+                                    setSubmissionPreview(createPreview(form, 'Outbound', tasks))
+                                  }}
+                                >
+                                  View
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        })()}
                       </div>
                     </div>
                   ) : (
                     <p className="text-gray-400 text-sm">No outbound items</p>
                   )}
                 </div>
-                <div>
-                  <h2 className="text-white text-lg mb-3">Tasks I Cleared</h2>
-                  {archivedCleared.length ? (
-                    <div className="space-y-4">
-                      {archivedCleared.map(item => {
-                        const m = memberMap[item.member_user_id]
-                        const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : item.member_user_id
-                        return (
-                          <div key={`${item.member_user_id}-${item.sub_task_id}`} className="border border-github-border rounded">
-                            <div className="px-3 py-2 border-b border-github-border text-white text-sm">{name}</div>
-                            <ul className="p-3 space-y-1 text-sm text-gray-300">
-                              <li>{item.sub_task_id}</li>
-                              <li>{item.cleared_at_timestamp || '—'}</li>
-                            </ul>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-gray-400 text-sm">No cleared tasks</p>
-                  )}
-                </div>
+                )}
+                
               </div>
             )}
             
