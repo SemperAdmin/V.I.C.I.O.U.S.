@@ -86,9 +86,10 @@ export default function UnitAdminDashboard() {
   const [taskEditLocation, setTaskEditLocation] = useState('')
   const [taskEditLocationUrl, setTaskEditLocationUrl] = useState('')
   const [taskEditInstructions, setTaskEditInstructions] = useState('')
-  const [taskEditCompletionKind, setTaskEditCompletionKind] = useState<'Text' | 'Date' | 'Options' | ''>('')
+  const [taskEditCompletionKind, setTaskEditCompletionKind] = useState<'Text' | 'Date' | 'Options' | 'Link' | ''>('')
   const [taskEditCompletionLabel, setTaskEditCompletionLabel] = useState('')
   const [taskEditCompletionOptions, setTaskEditCompletionOptions] = useState('')
+  const [taskEditLinkUrl, setTaskEditLinkUrl] = useState('')
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [newFormName, setNewFormName] = useState('')
   const [newFormKind, setNewFormKind] = useState<'Inbound' | 'Outbound'>('Inbound')
@@ -799,6 +800,7 @@ export default function UnitAdminDashboard() {
                           <option value="Text">Text</option>
                           <option value="Date">Date</option>
                           <option value="Options">Options</option>
+                          <option value="Link">Link (auto-complete on click)</option>
                         </select>
                         <input
                           value={taskEditCompletionLabel}
@@ -811,6 +813,14 @@ export default function UnitAdminDashboard() {
                             value={taskEditCompletionOptions}
                             onChange={e => setTaskEditCompletionOptions(e.target.value)}
                             placeholder="Completion options (comma-separated)"
+                            className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                          />
+                        )}
+                        {taskEditCompletionKind === 'Link' && (
+                          <input
+                            value={taskEditLinkUrl}
+                            onChange={e => setTaskEditLinkUrl(e.target.value)}
+                            placeholder="Link URL (https://...)"
                             className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                           />
                         )}
@@ -837,6 +847,7 @@ export default function UnitAdminDashboard() {
                               completion_kind: taskEditCompletionKind || undefined,
                               completion_label: taskEditCompletionLabel.trim() || undefined,
                               completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                              link_url: taskEditCompletionKind === 'Link' ? taskEditLinkUrl.trim() || undefined : undefined,
                             })
                             setTasks(await listSubTasks(unitId))
                             setCreateModalOpen(false)
@@ -844,6 +855,7 @@ export default function UnitAdminDashboard() {
                             setTaskEditCompletionKind('')
                             setTaskEditCompletionLabel('')
                             setTaskEditCompletionOptions('')
+                            setTaskEditLinkUrl('')
                           } catch (err: any) {
                             const msg = err?.message || String(err)
                             setTasksError(msg || 'Failed to add sub task')
@@ -936,6 +948,7 @@ export default function UnitAdminDashboard() {
                                     completion_kind: taskEditCompletionKind || undefined,
                                     completion_label: taskEditCompletionLabel.trim() || undefined,
                                     completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                                    link_url: taskEditCompletionKind === 'Link' ? taskEditLinkUrl.trim() || undefined : undefined,
                                   })
                                   setTasks(await listSubTasks(unitId))
                                   setTaskEditingId(null)
@@ -976,6 +989,7 @@ export default function UnitAdminDashboard() {
                                   setTaskEditCompletionKind(t.completion_kind || '')
                                   setTaskEditCompletionLabel(t.completion_label || '')
                                   setTaskEditCompletionOptions((t.completion_options || []).join(', '))
+                                  setTaskEditLinkUrl((t as any).link_url || '')
                                 }}
                                 className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                               >

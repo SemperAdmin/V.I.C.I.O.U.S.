@@ -36,7 +36,7 @@ export default function MyDashboard() {
   const [taskLabels, setTaskLabels] = useState<Record<string, { section_name: string; description: string }>>({})
   const [submissionPreview, setSubmissionPreview] = useState<MyFormSubmission | null>(null)
   const [sectionDisplay, setSectionDisplay] = useState('')
-  const [previewPendingBySection, setPreviewPendingBySection] = useState<Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]>>({})
+  const [previewPendingBySection, setPreviewPendingBySection] = useState<Record<string, { sub_task_id: string; description: string; location?: string; map_url?: string; instructions?: string; completion_kind?: string; link_url?: string }[]>>({})
   const [previewCompletedBySection, setPreviewCompletedBySection] = useState<Record<string, { text: string; note?: string; at?: string; by?: string }[]>>({})
   const [previewCompletedRows, setPreviewCompletedRows] = useState<Array<{ section: string; task: string; note?: string; at?: string; by?: string }>>([])
   const [sectionDisplayMap, setSectionDisplayMap] = useState<Record<string, string>>({})
@@ -497,7 +497,7 @@ export default function MyDashboard() {
                           return total > 0 && done < total
                         })
                         return rows.length ? rows.map(s => (
-                          <div key={`sub-${s.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
+                          <div key={`sub-${s.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                             <div className="p-2">{s.form_name}</div>
                             <div className="p-2">{s.unit_id}</div>
                             <div className="p-2">{s.arrival_date || (arrivalDate || new Date().toISOString().slice(0,10))}</div>
@@ -551,14 +551,14 @@ export default function MyDashboard() {
                                     }
                                     setPreviewCompletedRows(consolidated)
 
-                                    const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                    const pendingBySection: Record<string, { sub_task_id: string; description: string; location?: string; map_url?: string; instructions?: string; completion_kind?: string; link_url?: string }[]> = {}
                                     for (const t of tasks) {
                                       const label = taskLabels[t.sub_task_id]
                                       const secCode = label?.section_name || ''
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Inbound', tasks, s as any))
@@ -584,7 +584,7 @@ export default function MyDashboard() {
                         </div>
                         <div className="text-sm">
                           {inboundFormsPendingSummary.filter(r => r.completed < r.total).map((r, i) => (
-                            <div key={`sum-${i}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
+                            <div key={`sum-${i}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                               <div className="p-2">{r.formName}</div>
                               <div className="p-2">{(() => {
                                 const fid = forms.find(f => f.name === r.formName && f.kind === 'Inbound')?.id || 0
@@ -636,14 +636,14 @@ export default function MyDashboard() {
                                       }
                                       setPreviewCompletedRows(consolidated)
                                     } catch (err) { console.error(err) }
-                                    const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                    const pendingBySection: Record<string, { sub_task_id: string; description: string; location?: string; map_url?: string; instructions?: string; completion_kind?: string; link_url?: string }[]> = {}
                                     for (const t of tasks) {
                                       const label = taskLabels[t.sub_task_id]
                                       const secCode = label?.section_name || ''
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Inbound', tasks))
@@ -682,7 +682,7 @@ export default function MyDashboard() {
                         })
                         if (!inboundCompleted.length) return (<div className="text-gray-400 text-sm">None</div>)
                         return inboundCompleted.map(i => (
-                          <div key={`in-copy-${i.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
+                          <div key={`in-copy-${i.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                             <div className="p-2">{i.form_name}</div>
                             <div className="p-2">{user?.unit_id || ''}</div>
                             <div className="p-2">{(i as any)?.arrival_date || (arrivalDate || new Date().toISOString().slice(0,10))}</div>
@@ -730,14 +730,14 @@ export default function MyDashboard() {
                                   }
                                   setPreviewCompletedRows(consolidated)
                                 } catch (err) { console.error(err) }
-                                const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                const pendingBySection: Record<string, { sub_task_id: string; description: string; location?: string; map_url?: string; instructions?: string; completion_kind?: string; link_url?: string }[]> = {}
                                 for (const t of tasks) {
                                   const label = taskLabels[t.sub_task_id]
                                   const secCode = label?.section_name || ''
                                   const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                   const st = subTaskMap[t.sub_task_id]
                                   if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                  pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                  pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                 }
                                 setPreviewPendingBySection(pendingBySection)
                                 setSubmissionPreview(createPreview(form, 'Inbound', tasks))
@@ -785,7 +785,7 @@ export default function MyDashboard() {
                             return total > 0 && done < total
                           })
                           return rows.length ? rows.map(s => (
-                            <div key={`sub-${s.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
+                            <div key={`sub-${s.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                               <div className="p-2">{s.form_name}</div>
                               <div className="p-2">{s.unit_id}</div>
                               <div className="p-2">{s.departure_date || (departureDate || new Date().toISOString().slice(0,10))}</div>
@@ -839,14 +839,14 @@ export default function MyDashboard() {
                                     }
                                     setPreviewCompletedRows(consolidated)
 
-                                    const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                    const pendingBySection: Record<string, { sub_task_id: string; description: string; location?: string; map_url?: string; instructions?: string; completion_kind?: string; link_url?: string }[]> = {}
                                     for (const t of tasks) {
                                       const label = taskLabels[t.sub_task_id]
                                       const secCode = label?.section_name || ''
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks, s as any))
@@ -872,7 +872,7 @@ export default function MyDashboard() {
                         </div>
                         <div className="text-sm">
                           {outboundFormsPendingSummary.filter(r => r.completed < r.total).map((r, i) => (
-                            <div key={`ob-sum-${i}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300">
+                            <div key={`ob-sum-${i}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                               <div className="p-2">{r.formName}</div>
                               <div className="p-2">{(() => {
                                 const fid = forms.find(f => f.name === r.formName && f.kind === 'Outbound')?.id || 0
@@ -904,14 +904,14 @@ export default function MyDashboard() {
                                           status: 'Pending' as const,
                                         }))
                                     } catch (err) { console.error(err) }
-                                    const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                    const pendingBySection: Record<string, { sub_task_id: string; description: string; location?: string; map_url?: string; instructions?: string; completion_kind?: string; link_url?: string }[]> = {}
                                     for (const t of tasks) {
                                       const label = taskLabels[t.sub_task_id]
                                       const secCode = label?.section_name || ''
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks))
@@ -951,7 +951,7 @@ export default function MyDashboard() {
                           })
                           if (!completedRows.length) return (<div className="text-gray-400 text-sm">None</div>)
                           return completedRows.map(i => (
-                            <div key={`out-${i.id}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300">
+                            <div key={`out-${i.id}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                               <div className="p-2">{i.form_name}</div>
                               <div className="p-2">{user?.unit_id || ''}</div>
                               <div className="p-2">{user?.edipi || ''}</div>
@@ -1000,14 +1000,14 @@ export default function MyDashboard() {
                                       }
                                       setPreviewCompletedRows(consolidated)
                                     } catch (err) { console.error(err) }
-                                    const pendingBySection: Record<string, { description: string; location?: string; map_url?: string; instructions?: string }[]> = {}
+                                    const pendingBySection: Record<string, { sub_task_id: string; description: string; location?: string; map_url?: string; instructions?: string; completion_kind?: string; link_url?: string }[]> = {}
                                     for (const t of tasks) {
                                       const label = taskLabels[t.sub_task_id]
                                       const secCode = label?.section_name || ''
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks))
@@ -1141,13 +1141,51 @@ export default function MyDashboard() {
                               {items.map((d, i) => (
                                 <li key={`${sec}-${i}`} className="flex flex-wrap items-center gap-2">
                                   <span>{d.description}</span>
-                                  {(() => {
-                                    const url = d.map_url || (d.location ? googleMapsLink(d.location) : '')
-                                    if (d.location && url) return (<><span className="text-gray-500">|</span><a href={url} target="_blank" rel="noreferrer" className="text-github-blue hover:underline">{d.location}</a></>)
-                                    if (d.location) return (<><span className="text-gray-500">|</span><span className="text-gray-400">{d.location}</span></>)
-                                    return null
-                                  })()}
-                                  {d.instructions ? (<><span className="text-gray-500">|</span><span className="text-gray-400">{d.instructions}</span></>) : null}
+                                  {d.completion_kind === 'Link' && d.link_url ? (
+                                    <a
+                                      href={d.link_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={async (e) => {
+                                        // Auto-complete this task when link is clicked
+                                        if (!submissionPreview || !user) return
+                                        const updatedTasks = submissionPreview.tasks.map(t =>
+                                          t.sub_task_id === d.sub_task_id
+                                            ? { ...t, status: 'Cleared' as const, cleared_at_timestamp: new Date().toISOString(), cleared_by_user_id: user.user_id, cleared_by_edipi: user.edipi }
+                                            : t
+                                        )
+                                        const completed = updatedTasks.filter(t => t.status === 'Cleared').length
+                                        const updated = { ...submissionPreview, tasks: updatedTasks, completed_count: completed }
+                                        if (import.meta.env.VITE_USE_SUPABASE === '1') {
+                                          const { sbUpdateSubmission } = await import('@/services/supabaseDataService')
+                                          await sbUpdateSubmission(submissionPreview.id, { tasks: updatedTasks, completed_count: completed })
+                                        }
+                                        setSubmissionPreview(updated)
+                                        // Remove from pending
+                                        const newPending = { ...previewPendingBySection }
+                                        for (const [key, arr] of Object.entries(newPending)) {
+                                          newPending[key] = arr.filter(item => item.sub_task_id !== d.sub_task_id)
+                                        }
+                                        setPreviewPendingBySection(newPending)
+                                        // Add to completed
+                                        setPreviewCompletedRows(prev => [...prev, { section: sec, task: d.description, at: new Date().toISOString(), by: user.rank + ' ' + user.first_name + ' ' + user.last_name }])
+                                        setRefreshKey(k => k + 1)
+                                      }}
+                                      className="px-2 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
+                                    >
+                                      Open Link ✓
+                                    </a>
+                                  ) : (
+                                    <>
+                                      {(() => {
+                                        const url = d.map_url || (d.location ? googleMapsLink(d.location) : '')
+                                        if (d.location && url) return (<><span className="text-gray-500">|</span><a href={url} target="_blank" rel="noreferrer" className="text-github-blue hover:underline">{d.location}</a></>)
+                                        if (d.location) return (<><span className="text-gray-500">|</span><span className="text-gray-400">{d.location}</span></>)
+                                        return null
+                                      })()}
+                                      {d.instructions ? (<><span className="text-gray-500">|</span><span className="text-gray-400">{d.instructions}</span></>) : null}
+                                    </>
+                                  )}
                                 </li>
                               ))}
                             </ul>
@@ -1168,7 +1206,7 @@ export default function MyDashboard() {
                         <div className="text-left p-2">When</div>
                       </div>
                       {previewCompletedRows.map((r, i) => (
-                        <div key={`row-${i}`} className="grid grid-cols-4 items-center border-t border-github-border text-gray-300">
+                        <div key={`row-${i}`} className="grid grid-cols-4 items-center border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
                           <div className="p-2">{r.section || ''}</div>
                           <div className="p-2">{r.task}</div>
                           <div className="p-2">{[r.note, (r.by ? `— ${r.by}` : '')].filter(Boolean).join(' ')}</div>

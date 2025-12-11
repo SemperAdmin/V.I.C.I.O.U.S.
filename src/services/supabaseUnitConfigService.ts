@@ -21,9 +21,10 @@ export type UnitSubTask = {
   location?: string
   map_url?: string
   instructions?: string
-  completion_kind?: 'Text' | 'Date' | 'Options'
+  completion_kind?: 'Text' | 'Date' | 'Options' | 'Link'
   completion_label?: string
   completion_options?: string[]
+  link_url?: string
 }
 
 export type UnitCompany = {
