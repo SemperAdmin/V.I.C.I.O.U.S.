@@ -117,7 +117,7 @@ export default function UnitAdminDashboard() {
   const [editMemberEdipi, setEditMemberEdipi] = useState<string | null>(null)
   const [editMemberCompany, setEditMemberCompany] = useState<string>('')
   const [editMemberSection, setEditMemberSection] = useState<string>('')
-  const [editMemberRole, setEditMemberRole] = useState<'Company_Manager' | 'Section_Manager' | 'Member'>('Member')
+  const [editMemberRole, setEditMemberRole] = useState<'Unit_Manager' | 'Company_Manager' | 'Section_Manager' | 'Member'>('Member')
   const [editMemberIsUnitAdmin, setEditMemberIsUnitAdmin] = useState(false)
 
   useEffect(() => {
@@ -1288,7 +1288,7 @@ export default function UnitAdminDashboard() {
                           </td>
                           <td className="p-2 hidden sm:table-cell">{companyLabel || ''}</td>
                           <td className="p-2 hidden sm:table-cell">{sectionLabel}</td>
-                          <td className="p-2 whitespace-nowrap">{role === 'Section_Manager' ? 'Sec Mgr' : role === 'Company_Manager' ? 'Co Mgr' : role}</td>
+                          <td className="p-2 whitespace-nowrap">{role === 'Unit_Manager' ? 'Unit Mgr' : role === 'Section_Manager' ? 'Sec Mgr' : role === 'Company_Manager' ? 'Co Mgr' : role}</td>
                           <td className="p-2">
                             <button
                               onClick={() => {
@@ -1341,6 +1341,7 @@ export default function UnitAdminDashboard() {
                           onChange={e => setEditMemberRole(e.target.value as any)}
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         >
+                          <option value="Unit_Manager">Unit Manager</option>
                           <option value="Company_Manager">Company Manager</option>
                           <option value="Section_Manager">Section Manager</option>
                           <option value="Member">Member</option>
@@ -1371,7 +1372,7 @@ export default function UnitAdminDashboard() {
                             }
 
                             // Save role override to localStorage for HeaderTools menu visibility
-                            if (editMemberRole === 'Company_Manager' || editMemberRole === 'Section_Manager' || editMemberRole === 'Member') {
+                            if (editMemberRole === 'Unit_Manager' || editMemberRole === 'Company_Manager' || editMemberRole === 'Section_Manager' || editMemberRole === 'Member') {
                               setUserRoleOverride(p.edipi, editMemberRole)
                             }
 

@@ -1,6 +1,6 @@
 export type RoleOverride = {
   user_id: string
-  org_role: 'Unit_Admin' | 'Company_Manager' | 'Section_Manager' | 'Member'
+  org_role: 'Unit_Admin' | 'Unit_Manager' | 'Company_Manager' | 'Section_Manager' | 'Member'
 }
 
 const KEY = 'users_role_overrides'
@@ -23,7 +23,7 @@ export const getRoleOverride = (user_id: string): RoleOverride | undefined => {
   return map[user_id]
 }
 
-export const setUserRoleOverride = (user_id: string, org_role: 'Unit_Admin' | 'Company_Manager' | 'Section_Manager' | 'Member') => {
+export const setUserRoleOverride = (user_id: string, org_role: 'Unit_Admin' | 'Unit_Manager' | 'Company_Manager' | 'Section_Manager' | 'Member') => {
   const map = load()
   map[user_id] = { user_id, org_role }
   save(map)

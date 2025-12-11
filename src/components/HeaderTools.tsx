@@ -1,4 +1,4 @@
-import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck, Building2 } from 'lucide-react'
+import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck, Building2, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useEffect, useState } from 'react'
@@ -80,6 +80,12 @@ export default function HeaderTools() {
                   Unit Admin
                 </button>
               )}
+              {effectiveRole === 'Unit_Manager' && (
+                <button onMouseDown={() => { setOpen(false); navigate('/unit-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
+                  <Users className="w-5 h-5 mr-2" />
+                  Unit Manager
+                </button>
+              )}
               {effectiveRole === 'Company_Manager' && (
                 <button onMouseDown={() => { setOpen(false); navigate('/company-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <Building2 className="w-5 h-5 mr-2" />
@@ -92,7 +98,7 @@ export default function HeaderTools() {
                   Section Manager
                 </button>
               )}
-              {(effectiveRole === 'Section_Manager' || effectiveRole === 'Company_Manager') && (
+              {(effectiveRole === 'Section_Manager' || effectiveRole === 'Company_Manager' || effectiveRole === 'Unit_Manager') && (
                 <button onMouseDown={() => { setOpen(false); navigate('/task-manager') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <ListChecks className="w-5 h-5 mr-2" />
                   Task Manager

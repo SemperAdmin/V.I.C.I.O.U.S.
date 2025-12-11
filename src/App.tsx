@@ -10,6 +10,7 @@ import Register from './pages/Register'
 import AdminDashboard from './pages/AdminDashboard'
 import UnitAdminDashboard from './pages/UnitAdminDashboard'
 import CompanyManagerDashboard from './pages/CompanyManagerDashboard'
+import UnitManagerDashboard from './pages/UnitManagerDashboard'
 import SectionManagerDashboard from './pages/SectionManagerDashboard'
 import TaskManagerDashboard from './pages/TaskManagerDashboard'
 import Enroll from './pages/Enroll'
@@ -26,6 +27,7 @@ function App() {
           <Route path="/my-dashboard" element={<MyDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/unit-admin" element={<UnitAdminDashboard />} />
+          <Route path="/unit-manager" element={<UnitManagerDashboard />} />
           <Route path="/company-manager" element={<CompanyManagerDashboard />} />
           <Route path="/section-manager" element={<SectionManagerDashboard />} />
           <Route path="/task-manager" element={<TaskManagerDashboard />} />
