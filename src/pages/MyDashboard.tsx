@@ -50,7 +50,9 @@ export default function MyDashboard() {
   const [arrivalDate, setArrivalDate] = useState<string>('')
   const [departureDate, setDepartureDate] = useState<string>('')
   const [selectedUnit, setSelectedUnit] = useState<string>('')
-  const [unitOptions, setUnitOptions] = useState<Array<{ id: string; name: string }>>([])
+  const [unitOptions, setUnitOptions] = useState<Array<{ id: string; name: string; uic: string; ruc: string; mcc: string }>>([])
+  const [unitSearchQuery, setUnitSearchQuery] = useState('')
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false)
   const [formCompletion, setFormCompletion] = useState<Record<number, { completed: number; total: number }>>({})
 
   // Memoized map of latest submissions per form+kind to avoid repeated filter/sort operations
@@ -422,7 +424,13 @@ export default function MyDashboard() {
   }, [user?.unit_id, user?.platoon_id])
 
   useEffect(() => {
-    const opts = (UNITS || []).map(u => ({ id: `${u.uic}-${u.ruc}-${u.mcc}`, name: `${u.unitName} (${u.mcc})` }))
+    const opts = (UNITS || []).map(u => ({
+      id: `${u.uic}-${u.ruc}-${u.mcc}`,
+      name: `${u.unitName} (${u.mcc})`,
+      uic: u.uic,
+      ruc: u.ruc,
+      mcc: u.mcc
+    }))
     const unique = Array.from(new Map(opts.map(o => [o.id, o])).values())
     setUnitOptions(unique)
     setSelectedUnit(user?.unit_id || unique[0]?.id || '')
@@ -460,7 +468,7 @@ export default function MyDashboard() {
             <div>
               <button
                 className="px-3 py-2 bg-github-blue hover:bg-blue-600 text-white rounded text-sm"
-                onClick={() => setCreateOpen(true)}
+                onClick={() => { setUnitSearchQuery(''); setShowUnitDropdown(false); setSelectedUnit(''); setCreateOpen(true) }}
               >
                 Create Form
               </button>
@@ -1044,22 +1052,64 @@ export default function MyDashboard() {
                   setNewKind(k)
                   const first = forms.filter(f => f.kind === k)[0]
                   setSelectedFormId(first ? first.id : null)
-                  if (k === 'Inbound') { setArrivalDate(new Date().toISOString().slice(0,10)); setDepartureDate('') } else { setDepartureDate(new Date().toISOString().slice(0,10)); setArrivalDate('') }
+                  if (k === 'Inbound') { setArrivalDate(new Date().toISOString().slice(0,10)); setDepartureDate(''); setSelectedUnit('') } else { setDepartureDate(new Date().toISOString().slice(0,10)); setArrivalDate(''); setUnitSearchQuery(''); setSelectedUnit('') }
                 }} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
                   <option value="Inbound">Inbound</option>
                   <option value="Outbound">Outbound</option>
                 </select>
-                <select value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
-                  <option value="">Select unit</option>
-                  {(() => {
-                    // For Inbound forms, filter units to only those within the same RUC
-                    const userRuc = (user?.unit_id || '').split('-')[1] || ''
-                    const filteredUnits = newKind === 'Inbound' && userRuc
-                      ? unitOptions.filter(o => o.id.split('-')[1] === userRuc)
-                      : unitOptions
-                    return filteredUnits.map(o => (<option key={o.id} value={o.id}>{o.name}</option>))
-                  })()}
-                </select>
+                {newKind === 'Inbound' ? (
+                  <select value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
+                    <option value="">Select unit</option>
+                    {(() => {
+                      const userRuc = (user?.unit_id || '').split('-')[1] || ''
+                      const filteredUnits = userRuc ? unitOptions.filter(o => o.ruc === userRuc) : unitOptions
+                      return filteredUnits.map(o => (<option key={o.id} value={o.id}>{o.name}</option>))
+                    })()}
+                  </select>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={unitSearchQuery}
+                      onChange={e => { setUnitSearchQuery(e.target.value); setShowUnitDropdown(true) }}
+                      onFocus={() => setShowUnitDropdown(true)}
+                      placeholder="Search by unit name, UIC, RUC, or MCC..."
+                      className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                    />
+                    {selectedUnit && (
+                      <div className="mt-1 text-xs text-green-400">
+                        Selected: {unitOptions.find(o => o.id === selectedUnit)?.name || selectedUnit}
+                      </div>
+                    )}
+                    {showUnitDropdown && unitSearchQuery && (
+                      <div className="absolute z-10 w-full mt-1 max-h-48 overflow-auto bg-black border border-github-border rounded shadow-lg">
+                        {(() => {
+                          const query = unitSearchQuery.toLowerCase()
+                          const filtered = unitOptions.filter(o =>
+                            o.name.toLowerCase().includes(query) ||
+                            o.uic.toLowerCase().includes(query) ||
+                            o.ruc.toLowerCase().includes(query) ||
+                            o.mcc.toLowerCase().includes(query)
+                          ).slice(0, 20)
+                          if (filtered.length === 0) {
+                            return <div className="px-3 py-2 text-gray-400 text-sm">No units found</div>
+                          }
+                          return filtered.map(o => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => { setSelectedUnit(o.id); setUnitSearchQuery(o.name); setShowUnitDropdown(false) }}
+                              className="w-full text-left px-3 py-2 hover:bg-github-gray hover:bg-opacity-40 text-white text-sm"
+                            >
+                              <div>{o.name}</div>
+                              <div className="text-xs text-gray-400">UIC: {o.uic} | RUC: {o.ruc} | MCC: {o.mcc}</div>
+                            </button>
+                          ))
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {newKind === 'Inbound' && (
                   <input type="date" value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
                 )}
