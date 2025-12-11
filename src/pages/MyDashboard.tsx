@@ -189,6 +189,7 @@ export default function MyDashboard() {
       tasks,
       arrival_date: kind === 'Inbound' ? (((latest as any)?.arrival_date) || (arrivalDate || new Date().toISOString().slice(0,10))) : undefined,
       departure_date: kind === 'Outbound' ? (((latest as any)?.departure_date) || (departureDate || new Date().toISOString().slice(0,10))) : undefined,
+      destination_unit_id: kind === 'Outbound' ? ((latest as any)?.destination_unit_id || '') : undefined,
     }
     return preview
   }
@@ -283,7 +284,7 @@ export default function MyDashboard() {
               const code = label?.section_name || ''
               const sec = code ? (sectionDisplayMap[code] || code) : ''
                   const loc = map[tid]?.location || ''
-              pRows.push({ formName: f.name, createdAt: undefined, description: (label?.description || tid), section: sec, location: loc || undefined })
+              pRows.push({ formName: f.name, createdAt: undefined, description: tid, section: sec, location: loc || undefined })
             }
           }
           try {
@@ -296,7 +297,7 @@ export default function MyDashboard() {
                   const code = label?.section_name || ''
                   const sec = code ? (sectionDisplayMap[code] || code) : (subTaskMap[t.sub_task_id]?.section_id ? (sectionDisplayMap[String(subTaskMap[t.sub_task_id]?.section_id)] || '') : '')
                   const loc = subTaskMap[t.sub_task_id]?.location || ''
-                  pRows.push({ formName: s.form_name, createdAt: s.created_at, description: (label?.description || t.description || t.sub_task_id), section: sec, location: loc || undefined })
+                  pRows.push({ formName: s.form_name, createdAt: s.created_at, description: t.sub_task_id, section: sec, location: loc || undefined })
                 }
               }
             }
@@ -308,7 +309,7 @@ export default function MyDashboard() {
                 const code = label?.section_name || ''
                 const sec = code ? (sectionDisplayMap[code] || code) : ''
                 const loc = (map[tid] as any)?.location || ''
-                pRows.push({ formName: f.name, createdAt: undefined, description: (label?.description || tid), section: sec, location: loc || undefined })
+                pRows.push({ formName: f.name, createdAt: undefined, description: tid, section: sec, location: loc || undefined })
               }
             }
           }
@@ -323,7 +324,7 @@ export default function MyDashboard() {
             const loc = map[tid]?.location || ''
             const instr = (map[tid] as any)?.instructions || ''
             const formName = formsInbound.find(ff => ff.task_ids.includes(tid))?.name || 'Inbound'
-            rows.push({ formName, createdAt: (lastLog?.at || entry?.cleared_at_timestamp), description: (label?.description || tid), section: sec, location: loc || undefined, instructions: instr || undefined, clearedBy: lastLog?.note })
+            rows.push({ formName, createdAt: (lastLog?.at || entry?.cleared_at_timestamp), description: tid, section: sec, location: loc || undefined, instructions: instr || undefined, clearedBy: lastLog?.note })
           }
           try {
             const subs = await listSubmissions(user.user_id)
@@ -336,7 +337,7 @@ export default function MyDashboard() {
                   const sec = code ? (sectionDisplayMap[code] || code) : (subTaskMap[t.sub_task_id]?.section_id ? (sectionDisplayMap[String(subTaskMap[t.sub_task_id]?.section_id)] || '') : '')
                   const loc = subTaskMap[t.sub_task_id]?.location || ''
                   const instr = subTaskMap[t.sub_task_id]?.instructions || ''
-                  rows.push({ formName: s.form_name, createdAt: s.created_at, description: (label?.description || t.description || t.sub_task_id), section: sec, location: loc || undefined, instructions: instr || undefined, clearedBy: '' })
+                  rows.push({ formName: s.form_name, createdAt: s.created_at, description: t.sub_task_id, section: sec, location: loc || undefined, instructions: instr || undefined, clearedBy: '' })
                 }
               }
             }
@@ -352,7 +353,7 @@ export default function MyDashboard() {
               const code = label?.section_name || ''
               const sec = code ? (sectionDisplayMap[code] || code) : ''
               const loc = map[tid]?.location || ''
-              pRowsOut.push({ formName: f.name, createdAt: undefined, description: (label?.description || tid), section: sec, location: loc || undefined })
+              pRowsOut.push({ formName: f.name, createdAt: undefined, description: tid, section: sec, location: loc || undefined })
             }
           }
           try {
@@ -365,7 +366,7 @@ export default function MyDashboard() {
                   const code = label?.section_name || ''
                   const sec = code ? (sectionDisplayMap[code] || code) : (subTaskMap[t.sub_task_id]?.section_id ? (sectionDisplayMap[String(subTaskMap[t.sub_task_id]?.section_id)] || '') : '')
                   const loc = subTaskMap[t.sub_task_id]?.location || ''
-                  pRowsOut.push({ formName: s.form_name, createdAt: s.created_at, description: (label?.description || t.description || t.sub_task_id), section: sec, location: loc || undefined })
+                  pRowsOut.push({ formName: s.form_name, createdAt: s.created_at, description: t.sub_task_id, section: sec, location: loc || undefined })
                 }
               }
             }
@@ -377,7 +378,7 @@ export default function MyDashboard() {
                 const code = label?.section_name || ''
                 const sec = code ? (sectionDisplayMap[code] || code) : ''
                 const loc = (map[tid] as any)?.location || ''
-                pRowsOut.push({ formName: f.name, createdAt: undefined, description: (label?.description || tid), section: sec, location: loc || undefined })
+                pRowsOut.push({ formName: f.name, createdAt: undefined, description: tid, section: sec, location: loc || undefined })
               }
             }
           }
@@ -531,7 +532,7 @@ export default function MyDashboard() {
                                       .filter(t => t.status === 'Pending')
                                       .map(t => ({
                                         sub_task_id: t.sub_task_id,
-                                        description: (t.description || taskLabels[t.sub_task_id]?.description || t.sub_task_id),
+                                        description: t.sub_task_id,
                                         status: 'Pending' as const,
                                       }))
 
@@ -542,7 +543,7 @@ export default function MyDashboard() {
                                       const label = taskLabels[t.sub_task_id]
                                       const secCode = label?.section_name || ''
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                                      const desc = (t.description || label?.description || t.sub_task_id)
+                                      const desc = t.sub_task_id
                                       // Read log data from submission task fields
                                       const byUserId = (t as any)?.cleared_by_user_id || ''
                                       const actor = byUserId ? memberMap[byUserId] : undefined
@@ -566,7 +567,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.sub_task_id, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Inbound', tasks, s as any))
@@ -620,7 +621,7 @@ export default function MyDashboard() {
                                         .filter(tid => !clearedSet.has(tid))
                                         .map(tid => ({
                                           sub_task_id: tid,
-                                          description: (taskLabels[tid]?.description || tid),
+                                          description: tid,
                                           status: 'Pending' as const,
                                         }))
                                       const completedSet = new Set(progress.progress_tasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
@@ -630,7 +631,7 @@ export default function MyDashboard() {
                                         const label = taskLabels[tid]
                                         const secCode = label?.section_name || ''
                                         const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                                        const desc = (label?.description || tid)
+                                        const desc = tid
                                         const entry = progress.progress_tasks.find(t => String(t.sub_task_id) === String(tid)) as any
                                         const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
                                         const row = { text: desc, note: lastLog?.note, at: lastLog?.at }
@@ -651,7 +652,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.sub_task_id, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Inbound', tasks))
@@ -710,7 +711,7 @@ export default function MyDashboard() {
                                     .filter(tid => !clearedSet.has(tid))
                                     .map(tid => ({
                                       sub_task_id: tid,
-                                      description: (taskLabels[tid]?.description || tid),
+                                      description: tid,
                                       status: 'Pending' as const,
                                     }))
                                   const completedSet = new Set(progress.progress_tasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
@@ -720,7 +721,7 @@ export default function MyDashboard() {
                                     const label = taskLabels[tid]
                                     const secCode = label?.section_name || ''
                                     const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                                    const desc = (label?.description || tid)
+                                    const desc = tid
                                     const entry = (progress.progress_tasks || []).find(t => String(t.sub_task_id) === String(tid)) as any
                                     const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
                                     const byUserId = (entry as any)?.cleared_by_user_id || ''
@@ -745,7 +746,7 @@ export default function MyDashboard() {
                                   const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                   const st = subTaskMap[t.sub_task_id]
                                   if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                  pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                  pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.sub_task_id, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                 }
                                 setPreviewPendingBySection(pendingBySection)
                                 setSubmissionPreview(createPreview(form, 'Inbound', tasks))
@@ -819,7 +820,7 @@ export default function MyDashboard() {
                                       .filter(t => t.status === 'Pending')
                                       .map(t => ({
                                         sub_task_id: t.sub_task_id,
-                                        description: (t.description || taskLabels[t.sub_task_id]?.description || t.sub_task_id),
+                                        description: t.sub_task_id,
                                         status: 'Pending' as const,
                                       }))
 
@@ -830,7 +831,7 @@ export default function MyDashboard() {
                                       const label = taskLabels[t.sub_task_id]
                                       const secCode = label?.section_name || ''
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                                      const desc = (t.description || label?.description || t.sub_task_id)
+                                      const desc = t.sub_task_id
                                       // Read log data from submission task fields
                                       const byUserId = (t as any)?.cleared_by_user_id || ''
                                       const actor = byUserId ? memberMap[byUserId] : undefined
@@ -854,7 +855,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.sub_task_id, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks, s as any))
@@ -908,7 +909,7 @@ export default function MyDashboard() {
                                         .filter(tid => pendingSet.has(tid))
                                         .map(tid => ({
                                           sub_task_id: tid,
-                                          description: (taskLabels[tid]?.description || tid),
+                                          description: tid,
                                           status: 'Pending' as const,
                                         }))
                                     } catch (err) { console.error(err) }
@@ -919,7 +920,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.sub_task_id, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks))
@@ -980,7 +981,7 @@ export default function MyDashboard() {
                                         .filter(tid => !clearedSet2.has(tid))
                                         .map(tid => ({
                                           sub_task_id: tid,
-                                          description: (taskLabels[tid]?.description || tid),
+                                          description: tid,
                                           status: 'Pending' as const,
                                         }))
                                       const completedSet = new Set(progress.progress_tasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
@@ -990,7 +991,7 @@ export default function MyDashboard() {
                                         const label = taskLabels[tid]
                                         const secCode = label?.section_name || ''
                                         const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                                        const desc = (label?.description || tid)
+                                        const desc = tid
                                         const entry = (progress.progress_tasks || []).find(t => String(t.sub_task_id) === String(tid)) as any
                                         const lastLog = Array.isArray(entry?.logs) && entry.logs.length ? entry.logs[entry.logs.length - 1] : undefined
                                         const byUserId = (entry as any)?.cleared_by_user_id || ''
@@ -1015,7 +1016,7 @@ export default function MyDashboard() {
                                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
                                       const st = subTaskMap[t.sub_task_id]
                                       if (!pendingBySection[secName]) pendingBySection[secName] = []
-                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: label?.description || t.description, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
+                                      pendingBySection[secName].push({ sub_task_id: t.sub_task_id, description: t.sub_task_id, location: st?.location || '', map_url: (st as any)?.map_url || '', instructions: st?.instructions || '', completion_kind: (st as any)?.completion_kind || '', link_url: (st as any)?.link_url || '' })
                                     }
                                     setPreviewPendingBySection(pendingBySection)
                                     setSubmissionPreview(createPreview(form, 'Outbound', tasks))
@@ -1130,7 +1131,7 @@ export default function MyDashboard() {
                       const label = taskLabels[tid]
                       const secCode = label?.section_name || ''
                       const secName = secCode ? (sectionDisplayMap[secCode] || secCode) : ''
-                      const text = [secName, (label?.description || tid)].filter(Boolean).join(' - ')
+                      const text = [secName, tid].filter(Boolean).join(' - ')
                       return (
                         <div key={tid} className="text-sm text-gray-300">{text}</div>
                       )
@@ -1143,7 +1144,7 @@ export default function MyDashboard() {
                   if (!user || !selectedFormId) return
                   const form = forms.find(f => f.id === selectedFormId)
                   if (!form) return
-                  const tasks = form.task_ids.map(tid => ({ sub_task_id: tid, description: (taskLabels[tid]?.description || tid), status: 'Pending' as const }))
+                  const tasks = form.task_ids.map(tid => ({ sub_task_id: tid, description: tid, status: 'Pending' as const }))
                   const submission: any = {
                     user_id: user.user_id,
                     unit_id: newKind === 'Outbound' ? user.unit_id : (selectedUnit || user.unit_id),

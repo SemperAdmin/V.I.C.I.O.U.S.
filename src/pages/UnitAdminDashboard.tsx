@@ -849,16 +849,14 @@ export default function UnitAdminDashboard() {
                             setTasksError('')
                             if (!newTask.section_id || !newTask.description.trim()) return
                             const ids = defaultEdipis
-                            const section = sections.find(s => s.id === newTask.section_id)
-                            const prefix = section?.section_name || 'TASK'
-                            const next = (tasks.filter(t => t.section_id === newTask.section_id).length + 1)
-                            const sub_task_id = `${prefix}-${String(next).padStart(2, '0')}`
+                            // Use description as the sub_task_id (display name IS the ID)
+                            const sub_task_id = newTask.description.trim()
                           try {
                             await createSubTask({
                               unit_id: unitId,
                               section_id: newTask.section_id,
                               sub_task_id,
-                              description: newTask.description.trim(),
+                              description: sub_task_id,
                               responsible_user_ids: ids,
                               location: newTask.location.trim() || undefined,
                               instructions: newTask.instructions.trim() || undefined,

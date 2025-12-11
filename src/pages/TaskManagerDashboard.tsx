@@ -1019,7 +1019,7 @@ export default function TaskManagerDashboard() {
                             const isBeingCleared = tid === actionSubTaskId
                             return {
                               sub_task_id: tid,
-                              description: (byId[tid]?.description || taskLabels[tid]?.description || tid),
+                              description: tid,
                               // CRITICAL: Keep existing status, only update if this is the task being signed off
                               status: (isBeingCleared ? 'Cleared' : (byId[tid]?.status || 'Pending')) as 'Pending' | 'Cleared' | 'Skipped',
                               // Include log fields when clearing
@@ -1054,7 +1054,7 @@ export default function TaskManagerDashboard() {
                                 const isBeingCleared = tid === actionSubTaskId
                                 return {
                                   sub_task_id: tid,
-                                  description: (byId[tid]?.description || taskLabels[tid]?.description || tid),
+                                  description: tid,
                                   status: (isBeingCleared ? 'Cleared' : (byId[tid]?.status || 'Pending')) as 'Pending' | 'Cleared' | 'Skipped',
                                   cleared_by_user_id: isBeingCleared ? user.user_id : byId[tid]?.cleared_by_user_id,
                                   cleared_by_edipi: isBeingCleared ? user.edipi : byId[tid]?.cleared_by_edipi,
