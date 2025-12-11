@@ -324,7 +324,7 @@ export default function UnitAdminDashboard() {
                   value={managedRuc}
                   onChange={(e) => handleRucSwitch(e.target.value)}
                   disabled={rucSwitching}
-                  className="bg-github-gray border border-github-border text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-github-blue disabled:opacity-50"
+                  className="bg-semper-navy bg-opacity-80 border border-gray-600 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-semper-gold disabled:opacity-50"
                 >
                   {adminRucs.map((ruc) => (
                     <option key={ruc.ruc} value={ruc.ruc}>

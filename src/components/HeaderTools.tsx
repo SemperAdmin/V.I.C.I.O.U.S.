@@ -50,11 +50,12 @@ export default function HeaderTools() {
   }
 
   return (
-    <div className="flex items-center space-x-4">
+    <div className="flex items-center space-x-2 sm:space-x-4">
       <div className="relative">
-        <button onClick={() => setOpen(!open)} className="flex items-center px-3 py-2 text-gray-300 hover:text-white transition-colors">
-          Dashboards
-          <ChevronDown className="w-4 h-4 ml-2" />
+        <button onClick={() => setOpen(!open)} className="flex items-center px-2 sm:px-3 py-2 text-gray-300 hover:text-white transition-colors text-sm sm:text-base">
+          <span className="hidden sm:inline">Dashboards</span>
+          <span className="sm:hidden">Menu</span>
+          <ChevronDown className="w-4 h-4 ml-1 sm:ml-2" />
         </button>
         {open && (
           <div className="absolute right-0 mt-2 w-48 bg-black border border-github-border rounded-lg shadow-lg z-50">
@@ -99,14 +100,19 @@ export default function HeaderTools() {
           </div>
         )}
       </div>
-      <span className="text-sm text-gray-300">
-        {[
-          user?.rank,
-          [user?.first_name, user?.last_name].filter(Boolean).join(' ')
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        {sectionLabel ? ` | ${sectionLabel}` : ''}
+      <span className="text-xs sm:text-sm text-gray-300 truncate max-w-[100px] sm:max-w-none">
+        <span className="hidden sm:inline">
+          {[
+            user?.rank,
+            [user?.first_name, user?.last_name].filter(Boolean).join(' ')
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          {sectionLabel ? ` | ${sectionLabel}` : ''}
+        </span>
+        <span className="sm:hidden">
+          {user?.rank} {user?.last_name}
+        </span>
       </span>
       
     </div>
