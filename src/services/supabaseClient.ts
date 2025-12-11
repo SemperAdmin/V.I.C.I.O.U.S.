@@ -8,6 +8,11 @@ const createMockClient = (): SupabaseClient => {
   const mockFn = () => {
     throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.')
   }
+  const mockChannel = {
+    on: () => mockChannel,
+    subscribe: () => mockChannel,
+    unsubscribe: () => {},
+  }
   return {
     from: () => ({
       select: mockFn,
@@ -21,6 +26,8 @@ const createMockClient = (): SupabaseClient => {
       signOut: mockFn,
       getSession: mockFn,
     },
+    channel: () => mockChannel,
+    removeChannel: () => {},
   } as unknown as SupabaseClient
 }
 
