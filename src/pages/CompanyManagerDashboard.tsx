@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import HeaderTools from '@/components/HeaderTools'
 import BrandMark from '@/components/BrandMark'
@@ -31,20 +31,66 @@ export default function CompanyManagerDashboard() {
   const [filterSection, setFilterSection] = useState('')
   const [filterForm, setFilterForm] = useState('')
 
-  // Filter helper function
-  const filterRows = (rows: typeof companyFormStatus) => {
-    return rows.filter(row => {
+  // Memoized filtered rows for each view
+  const pendingInboundRows = useMemo(() => {
+    const lowerMember = filterMember.toLowerCase()
+    const lowerSection = filterSection.toLowerCase()
+    const lowerForm = filterForm.toLowerCase()
+    return companyFormStatus.filter(row => {
+      if (row.kind !== 'Inbound' || row.status === 'Completed') return false
       const m = memberMap[row.user_id]
       const memberName = m ? [m.rank, m.first_name, m.last_name].filter(Boolean).join(' ').toLowerCase() : row.user_id.toLowerCase()
-      const section = (row.section || '').toLowerCase()
-      const form = (row.form_name || '').toLowerCase()
-
-      if (filterMember && !memberName.includes(filterMember.toLowerCase())) return false
-      if (filterSection && !section.includes(filterSection.toLowerCase())) return false
-      if (filterForm && !form.includes(filterForm.toLowerCase())) return false
+      if (lowerMember && !memberName.includes(lowerMember)) return false
+      if (lowerSection && !(row.section || '').toLowerCase().includes(lowerSection)) return false
+      if (lowerForm && !(row.form_name || '').toLowerCase().includes(lowerForm)) return false
       return true
     })
-  }
+  }, [companyFormStatus, memberMap, filterMember, filterSection, filterForm])
+
+  const completedInboundRows = useMemo(() => {
+    const lowerMember = filterMember.toLowerCase()
+    const lowerSection = filterSection.toLowerCase()
+    const lowerForm = filterForm.toLowerCase()
+    return companyFormStatus.filter(row => {
+      if (row.kind !== 'Inbound' || row.status !== 'Completed') return false
+      const m = memberMap[row.user_id]
+      const memberName = m ? [m.rank, m.first_name, m.last_name].filter(Boolean).join(' ').toLowerCase() : row.user_id.toLowerCase()
+      if (lowerMember && !memberName.includes(lowerMember)) return false
+      if (lowerSection && !(row.section || '').toLowerCase().includes(lowerSection)) return false
+      if (lowerForm && !(row.form_name || '').toLowerCase().includes(lowerForm)) return false
+      return true
+    })
+  }, [companyFormStatus, memberMap, filterMember, filterSection, filterForm])
+
+  const pendingOutboundRows = useMemo(() => {
+    const lowerMember = filterMember.toLowerCase()
+    const lowerSection = filterSection.toLowerCase()
+    const lowerForm = filterForm.toLowerCase()
+    return companyFormStatus.filter(row => {
+      if (row.kind !== 'Outbound' || row.status === 'Completed') return false
+      const m = memberMap[row.user_id]
+      const memberName = m ? [m.rank, m.first_name, m.last_name].filter(Boolean).join(' ').toLowerCase() : row.user_id.toLowerCase()
+      if (lowerMember && !memberName.includes(lowerMember)) return false
+      if (lowerSection && !(row.section || '').toLowerCase().includes(lowerSection)) return false
+      if (lowerForm && !(row.form_name || '').toLowerCase().includes(lowerForm)) return false
+      return true
+    })
+  }, [companyFormStatus, memberMap, filterMember, filterSection, filterForm])
+
+  const completedOutboundRows = useMemo(() => {
+    const lowerMember = filterMember.toLowerCase()
+    const lowerSection = filterSection.toLowerCase()
+    const lowerForm = filterForm.toLowerCase()
+    return companyFormStatus.filter(row => {
+      if (row.kind !== 'Outbound' || row.status !== 'Completed') return false
+      const m = memberMap[row.user_id]
+      const memberName = m ? [m.rank, m.first_name, m.last_name].filter(Boolean).join(' ').toLowerCase() : row.user_id.toLowerCase()
+      if (lowerMember && !memberName.includes(lowerMember)) return false
+      if (lowerSection && !(row.section || '').toLowerCase().includes(lowerSection)) return false
+      if (lowerForm && !(row.form_name || '').toLowerCase().includes(lowerForm)) return false
+      return true
+    })
+  }, [companyFormStatus, memberMap, filterMember, filterSection, filterForm])
 
   // Helper function to handle view details for submissions
   const handleViewDetails = async (
@@ -295,7 +341,7 @@ export default function CompanyManagerDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filterRows(companyFormStatus.filter(row => row.kind === 'Inbound' && row.status !== 'Completed')).map(row => {
+                        {pendingInboundRows.map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
@@ -349,7 +395,7 @@ export default function CompanyManagerDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filterRows(companyFormStatus.filter(row => row.kind === 'Inbound' && row.status === 'Completed')).map(row => {
+                        {completedInboundRows.map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
@@ -474,7 +520,7 @@ export default function CompanyManagerDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filterRows(companyFormStatus.filter(row => row.kind === 'Outbound' && row.status !== 'Completed')).map(row => {
+                        {pendingOutboundRows.map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
@@ -528,7 +574,7 @@ export default function CompanyManagerDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filterRows(companyFormStatus.filter(row => row.kind === 'Outbound' && row.status === 'Completed')).map(row => {
+                        {completedOutboundRows.map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
