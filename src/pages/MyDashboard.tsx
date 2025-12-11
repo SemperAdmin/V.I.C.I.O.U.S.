@@ -1128,15 +1128,17 @@ export default function MyDashboard() {
         {submissionPreview && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-2xl max-h-[80vh] overflow-y-auto bg-black border border-github-border rounded-xl p-6">
-              <h3 className="text-white text-lg mb-4">{submissionPreview.kind} — {submissionPreview.form_name}</h3>
+              <h3 className="text-white text-lg mb-4">{submissionPreview.form_id}: {submissionPreview.kind} | {submissionPreview.form_name}</h3>
               <div className="grid grid-cols-2 gap-3 text-sm text-gray-300">
-                <div><span className="text-gray-400">EDIPI:</span> {submissionPreview.member.edipi}</div>
+                <div><span className="text-gray-400">Member:</span> {[submissionPreview.member.rank, [submissionPreview.member.first_name, submissionPreview.member.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ')}</div>
                 <div><span className="text-gray-400">Unit:</span> {submissionPreview.unit_id}</div>
+                <div><span className="text-gray-400">EDIPI:</span> {submissionPreview.member.edipi}</div>
+                <div><span className="text-gray-400">Company:</span> {submissionPreview.member.company_id || ''}</div>
+                <div><span className="text-gray-400">Email:</span> {user?.email || ''}</div>
+                <div><span className="text-gray-400">Section:</span> {sectionDisplay || submissionPreview.member.platoon_id || ''}</div>
+                <div><span className="text-gray-400">Phone Number:</span> {user?.phone_number || ''}</div>
                 {submissionPreview.kind === 'Inbound' && (<div><span className="text-gray-400">Arrival:</span> {submissionPreview.arrival_date || ''}</div>)}
                 {submissionPreview.kind === 'Outbound' && (<div><span className="text-gray-400">Departure:</span> {submissionPreview.departure_date || ''}</div>)}
-                <div className="col-span-2"><span className="text-gray-400">Member:</span> {[submissionPreview.member.rank, [submissionPreview.member.first_name, submissionPreview.member.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' ')}</div>
-                <div><span className="text-gray-400">Company:</span> {submissionPreview.member.company_id || ''}</div>
-                <div><span className="text-gray-400">Section:</span> {sectionDisplay || submissionPreview.member.platoon_id || ''}</div>
               </div>
               <div className="mt-6 space-y-6">
                 <div>
