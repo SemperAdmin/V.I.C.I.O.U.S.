@@ -118,6 +118,7 @@ export default function UnitAdminDashboard() {
   const [editMemberCompany, setEditMemberCompany] = useState<string>('')
   const [editMemberSection, setEditMemberSection] = useState<string>('')
   const [editMemberRole, setEditMemberRole] = useState<'Section_Manager' | 'Member'>('Member')
+  const [editMemberIsUnitAdmin, setEditMemberIsUnitAdmin] = useState(false)
 
   useEffect(() => {
     const items = UNITS.filter(u => String(u.ruc) === managedRuc)
@@ -1292,6 +1293,9 @@ export default function UnitAdminDashboard() {
                                 setEditMemberCompany(p.company_id || '')
                                 setEditMemberSection(String(p.platoon_id || ''))
                                 setEditMemberRole((role as any) || 'Member')
+                                // Check if this member is a unit admin for the current RUC
+                                const isAdmin = globalAdmins.some(a => a.admin_user_id === p.edipi && a.ruc === managedRuc)
+                                setEditMemberIsUnitAdmin(isAdmin)
                               }}
                               className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                             >
@@ -1337,6 +1341,15 @@ export default function UnitAdminDashboard() {
                           <option value="Section_Manager">Section Manager</option>
                           <option value="Member">Member</option>
                         </select>
+                        <label className="flex items-center gap-3 px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editMemberIsUnitAdmin}
+                            onChange={e => setEditMemberIsUnitAdmin(e.target.checked)}
+                            className="w-4 h-4 rounded border-github-border text-github-blue focus:ring-github-blue"
+                          />
+                          <span className="text-white">Unit Admin for RUC {managedRuc}</span>
+                        </label>
                       </div>
                       <div className="mt-6 flex gap-2 justify-end">
                         <button
@@ -1352,6 +1365,26 @@ export default function UnitAdminDashboard() {
                                 org_role: editMemberRole,
                               })
                             }
+
+                            // Handle Unit Admin assignment for RUC
+                            const wasAdmin = globalAdmins.some(a => a.admin_user_id === p.edipi && a.ruc === managedRuc)
+                            if (editMemberIsUnitAdmin && !wasAdmin) {
+                              // Add as unit admin for this RUC
+                              const unitKey = `RUC-${managedRuc}`
+                              const unitName = `RUC ${managedRuc}`
+                              await sbUpsertUnitAdmin(unitKey, unitName, p.edipi, managedRuc)
+                              const admins = await sbListUnitAdmins()
+                              setGlobalAdmins(admins)
+                            } else if (!editMemberIsUnitAdmin && wasAdmin) {
+                              // Remove as unit admin for this RUC
+                              const adminEntry = globalAdmins.find(a => a.admin_user_id === p.edipi && a.ruc === managedRuc)
+                              if (adminEntry) {
+                                await sbRemoveUnitAdmin(adminEntry.unit_key, p.edipi)
+                                const admins = await sbListUnitAdmins()
+                                setGlobalAdmins(admins)
+                              }
+                            }
+
                             const updated = { ...p, company_id: editMemberCompany || p.company_id, platoon_id: editMemberSection || (p.platoon_id as any), org_role: editMemberRole }
                             setEdipiMap(prev => ({ ...prev, [p.edipi]: updated }))
                             setEditMemberEdipi(null)
