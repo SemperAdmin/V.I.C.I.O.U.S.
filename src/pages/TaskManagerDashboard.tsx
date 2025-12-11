@@ -64,8 +64,11 @@ export default function TaskManagerDashboard() {
   const [actionOpen, setActionOpen] = useState(false)
   const [actionMemberId, setActionMemberId] = useState<string | null>(null)
   const [actionSubTaskId, setActionSubTaskId] = useState<string | null>(null)
+  const [actionSubmissionId, setActionSubmissionId] = useState<number | null>(null)
   const [actionCompletionValue, setActionCompletionValue] = useState<string>('')
   const [actionSectionInstructions, setActionSectionInstructions] = useState<string>('')
+  // Track which submission each pending task belongs to: { subTaskId -> { memberId -> submissionId } }
+  const [submissionByTaskMember, setSubmissionByTaskMember] = useState<Record<string, Record<string, number>>>({})
 
   useEffect(() => {
     if (!user || !user.unit_id) return
@@ -176,17 +179,23 @@ export default function TaskManagerDashboard() {
       const outboundCompletedByTask: Record<string, Set<string>> = {}
       const allPendingByTask: Record<string, Set<string>> = {}
       const allCompletedByTask: Record<string, Set<string>> = {}
+      // Track submission IDs: { subTaskId -> { memberId -> submissionId } }
+      const submissionTracking: Record<string, Record<string, number>> = {}
       try {
         const submissions = await sbListSubmissionsByUnit(user.unit_id)
         for (const s of submissions) {
           const kind = (s as any).kind as 'Inbound' | 'Outbound'
           const memberId = (s as any).user_id as string
+          const submissionId = (s as any).id as number
           const tasks = ((s as any).tasks || []) as Array<{ sub_task_id: string; status: 'Pending' | 'Cleared' | 'Skipped' }>
           for (const t of tasks) {
             const subId = t.sub_task_id
             if (t.status === 'Pending') {
               if (!allPendingByTask[subId]) allPendingByTask[subId] = new Set()
               allPendingByTask[subId].add(memberId)
+              // Track which submission this pending task belongs to
+              if (!submissionTracking[subId]) submissionTracking[subId] = {}
+              submissionTracking[subId][memberId] = submissionId
               if (kind === 'Inbound' && inboundTaskIds.has(subId)) {
                 if (!inboundByTask[subId]) inboundByTask[subId] = new Set()
                 inboundByTask[subId].add(memberId)
@@ -210,6 +219,7 @@ export default function TaskManagerDashboard() {
             }
           }
         }
+        setSubmissionByTaskMember(submissionTracking)
 
         for (const p of unitMembers) {
           const prog = await getProgressByMember(p.user_id)
@@ -485,6 +495,9 @@ export default function TaskManagerDashboard() {
                                     onClick={() => {
                                       setActionSubTaskId(subTaskId)
                                       setActionMemberId(mid)
+                                      // Capture the specific submission ID for this task+member
+                                      const subId = submissionByTaskMember[subTaskId]?.[mid] || null
+                                      setActionSubmissionId(subId)
                                       const unitKey = (user?.unit_id || '').includes('-') ? (user?.unit_id as string).split('-')[1] : (user?.unit_id as string)
                                       const sid = subTaskMap[subTaskId]?.section_id
                                       const key = sid ? `section_instructions:${unitKey}:${sid}` : ''
@@ -653,6 +666,9 @@ export default function TaskManagerDashboard() {
                                     onClick={() => {
                                       setActionSubTaskId(subTaskId)
                                       setActionMemberId(mid)
+                                      // Capture the specific submission ID for this task+member
+                                      const subId = submissionByTaskMember[subTaskId]?.[mid] || null
+                                      setActionSubmissionId(subId)
                                       const unitKey = (user?.unit_id || '').includes('-') ? (user?.unit_id as string).split('-')[1] : (user?.unit_id as string)
                                       const sid = subTaskMap[subTaskId]?.section_id
                                       const key = sid ? `section_instructions:${unitKey}:${sid}` : ''
@@ -1035,31 +1051,57 @@ export default function TaskManagerDashboard() {
                   if (import.meta.env.VITE_USE_SUPABASE === '1') {
                     await sbUpsertProgress(progress)
                     try {
-                      const ruc = (user.unit_id || '').includes('-') ? (user.unit_id || '').split('-')[1] : (user.unit_id || '')
-                      const forms = await listForms(ruc)
-                      const affected = forms.filter(f => actionSubTaskId && f.task_ids.includes(actionSubTaskId))
-                      if (affected.length) {
+                      // CRITICAL: Update the specific submission by ID, not the "latest"
+                      if (actionSubmissionId) {
+                        // We have the specific submission ID - update only that submission
                         const subs = await sbListSubmissions(actionMemberId)
-                        for (const f of affected) {
-                          const ids = f.task_ids
+                        const targetSubmission = subs.find(s => s.id === actionSubmissionId)
+                        if (targetSubmission) {
+                          const ids = Array.isArray((targetSubmission as any).task_ids)
+                            ? ((targetSubmission as any).task_ids as string[])
+                            : (targetSubmission.tasks || []).map(t => t.sub_task_id)
                           const total = ids.length
-                          const latest = subs.filter(s => s.form_id === f.id && s.kind === f.kind).sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
-                          if (latest) {
-                            // Use form-scoped task status: preserve existing statuses and only update the current task
-                            const existingTasks = Array.isArray((latest as any).tasks) ? (((latest as any).tasks || []) as Array<{ sub_task_id: string; description?: string; status?: 'Pending' | 'Cleared' | 'Skipped' }>) : []
-                            const byId: Record<string, { sub_task_id: string; description?: string; status?: 'Pending' | 'Cleared' | 'Skipped' }> = {}
-                            for (const t of existingTasks) byId[String(t.sub_task_id)] = t
-                            const nextTasks = ids.map(tid => ({
-                              sub_task_id: tid,
-                              description: (byId[tid]?.description || taskLabels[tid]?.description || tid),
-                              // CRITICAL: Keep existing status, only update if this is the task being signed off
-                              status: (tid === actionSubTaskId ? 'Cleared' : (byId[tid]?.status || 'Pending')) as 'Pending' | 'Cleared' | 'Skipped',
-                            }))
-                            // Calculate cleared count from submission's own tasks, not global progress
-                            const submissionClearedSet = new Set(nextTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
-                            const cleared = ids.filter(id => submissionClearedSet.has(id)).length
-                            const status: 'In_Progress' | 'Completed' = total > 0 && cleared === total ? 'Completed' : 'In_Progress'
-                            await sbUpdateSubmission(latest.id, { completed_count: cleared, total_count: total, status, task_ids: ids, tasks: nextTasks as any })
+                          // Use form-scoped task status: preserve existing statuses and only update the current task
+                          const existingTasks = Array.isArray((targetSubmission as any).tasks) ? (((targetSubmission as any).tasks || []) as Array<{ sub_task_id: string; description?: string; status?: 'Pending' | 'Cleared' | 'Skipped' }>) : []
+                          const byId: Record<string, { sub_task_id: string; description?: string; status?: 'Pending' | 'Cleared' | 'Skipped' }> = {}
+                          for (const t of existingTasks) byId[String(t.sub_task_id)] = t
+                          const nextTasks = ids.map(tid => ({
+                            sub_task_id: tid,
+                            description: (byId[tid]?.description || taskLabels[tid]?.description || tid),
+                            // CRITICAL: Keep existing status, only update if this is the task being signed off
+                            status: (tid === actionSubTaskId ? 'Cleared' : (byId[tid]?.status || 'Pending')) as 'Pending' | 'Cleared' | 'Skipped',
+                          }))
+                          // Calculate cleared count from submission's own tasks, not global progress
+                          const submissionClearedSet = new Set(nextTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                          const cleared = ids.filter(id => submissionClearedSet.has(id)).length
+                          const status: 'In_Progress' | 'Completed' = total > 0 && cleared === total ? 'Completed' : 'In_Progress'
+                          await sbUpdateSubmission(actionSubmissionId, { completed_count: cleared, total_count: total, status, task_ids: ids, tasks: nextTasks as any })
+                        }
+                      } else {
+                        // Fallback: no submission ID tracked, try to find by form (legacy behavior)
+                        const ruc = (user.unit_id || '').includes('-') ? (user.unit_id || '').split('-')[1] : (user.unit_id || '')
+                        const forms = await listForms(ruc)
+                        const affected = forms.filter(f => actionSubTaskId && f.task_ids.includes(actionSubTaskId))
+                        if (affected.length) {
+                          const subs = await sbListSubmissions(actionMemberId)
+                          for (const f of affected) {
+                            const ids = f.task_ids
+                            const total = ids.length
+                            const latest = subs.filter(s => s.form_id === f.id && s.kind === f.kind).sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
+                            if (latest) {
+                              const existingTasks = Array.isArray((latest as any).tasks) ? (((latest as any).tasks || []) as Array<{ sub_task_id: string; description?: string; status?: 'Pending' | 'Cleared' | 'Skipped' }>) : []
+                              const byId: Record<string, { sub_task_id: string; description?: string; status?: 'Pending' | 'Cleared' | 'Skipped' }> = {}
+                              for (const t of existingTasks) byId[String(t.sub_task_id)] = t
+                              const nextTasks = ids.map(tid => ({
+                                sub_task_id: tid,
+                                description: (byId[tid]?.description || taskLabels[tid]?.description || tid),
+                                status: (tid === actionSubTaskId ? 'Cleared' : (byId[tid]?.status || 'Pending')) as 'Pending' | 'Cleared' | 'Skipped',
+                              }))
+                              const submissionClearedSet = new Set(nextTasks.filter(t => t.status === 'Cleared').map(t => t.sub_task_id))
+                              const cleared = ids.filter(id => submissionClearedSet.has(id)).length
+                              const status: 'In_Progress' | 'Completed' = total > 0 && cleared === total ? 'Completed' : 'In_Progress'
+                              await sbUpdateSubmission(latest.id, { completed_count: cleared, total_count: total, status, task_ids: ids, tasks: nextTasks as any })
+                            }
                           }
                         }
                       }
@@ -1072,6 +1114,7 @@ export default function TaskManagerDashboard() {
                   setActionOpen(false)
                   setActionMemberId(null)
                   setActionSubTaskId(null)
+                  setActionSubmissionId(null)
                   setActionCompletionValue('')
                   setActionSectionInstructions('')
                   setRefreshKey(k => k + 1)
@@ -1079,7 +1122,7 @@ export default function TaskManagerDashboard() {
                   setActionMsg(err?.message || 'Failed to save')
                 }
               }} className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded">Save</button>
-              <button onClick={() => { setActionOpen(false); setActionMemberId(null); setActionSubTaskId(null); setActionCompletionValue(''); setActionSectionInstructions('') }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
+              <button onClick={() => { setActionOpen(false); setActionMemberId(null); setActionSubTaskId(null); setActionSubmissionId(null); setActionCompletionValue(''); setActionSectionInstructions('') }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
             </div>
           </div>
         </div>
