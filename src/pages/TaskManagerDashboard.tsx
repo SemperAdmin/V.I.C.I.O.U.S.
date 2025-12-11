@@ -157,6 +157,7 @@ export default function TaskManagerDashboard() {
         setFormNameByTask(fn)
       } catch (err) { console.error(err) }
       const sectionMembers = Object.values(profiles).filter(p => p.unit_id === user.unit_id && (user.platoon_id ? String(p.platoon_id) === String(user.platoon_id) : true))
+      const unitMembers = Object.values(profiles).filter(p => p.unit_id === user.unit_id)
       const sectionEdipis = new Set(sectionMembers.map(p => p.edipi))
       setDefaultResponsible(Array.from(sectionEdipis))
 
@@ -177,16 +178,12 @@ export default function TaskManagerDashboard() {
       const allCompletedByTask: Record<string, Set<string>> = {}
       try {
         const submissions = await sbListSubmissionsByUnit(user.unit_id)
-        const platoonSubs = submissions.filter(s => String((s as any).member?.platoon_id) === String(user.platoon_id))
-        for (const s of platoonSubs) {
+        for (const s of submissions) {
           const kind = (s as any).kind as 'Inbound' | 'Outbound'
           const memberId = (s as any).user_id as string
           const tasks = ((s as any).tasks || []) as Array<{ sub_task_id: string; status: 'Pending' | 'Cleared' | 'Skipped' }>
           for (const t of tasks) {
             const subId = t.sub_task_id
-            if (!responsibleSet.has(subId)) continue
-            const inScope = sectionTaskIds.has(subId) || (sectionPrefix ? String(subId).startsWith(`${sectionPrefix}-`) : false)
-            if (!inScope) continue
             if (t.status === 'Pending') {
               if (!allPendingByTask[subId]) allPendingByTask[subId] = new Set()
               allPendingByTask[subId].add(memberId)
@@ -214,13 +211,10 @@ export default function TaskManagerDashboard() {
           }
         }
 
-        for (const p of sectionMembers) {
+        for (const p of unitMembers) {
           const prog = await getProgressByMember(p.user_id)
           for (const t of (prog.progress_tasks || [])) {
             const subId = t.sub_task_id
-            if (!responsibleSet.has(subId)) continue
-            const inScope = sectionTaskIds.has(subId) || (sectionPrefix ? String(subId).startsWith(`${sectionPrefix}-`) : false)
-            if (!inScope) continue
             const isInbound = inboundTaskIds.has(subId)
             const isOutbound = outboundTaskIds.has(subId)
             if (t.status === 'Cleared') {
@@ -505,9 +499,9 @@ export default function TaskManagerDashboard() {
                                     <td className="p-2">{secDisplay}</td>
                                   </tr>
                                 )
-                            })}
-                          </tbody>
-                          
+                              })}
+                            </tbody>
+                            
                           </table>
                         </div>
                       </div>
@@ -517,53 +511,60 @@ export default function TaskManagerDashboard() {
                 )}
 
                 {inboundView === 'Completed' && (
-                  (Object.entries(inboundSectionGroupsCompleted).length
-                    ? Object.entries(inboundSectionGroupsCompleted).map(([secName, groups]) => (
-                        <div key={secName} className="border border-github-border rounded-xl">
-                          <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
-                            <h3 className="text-white text-sm">{secName}</h3>
-                            <span className="inline-flex items-center px-2 py-0.5 text-xs border border-github-border rounded bg-green-700 bg-opacity-30 text-green-300">Completed</span>
+                  ((() => {
+                    const mySecName = (mySectionId != null ? (sectionDisplayMap[String(mySectionId)] || '') : '') || sectionPrefix || sectionLabel || ''
+                    const entries = Object.entries(inboundSectionGroupsCompleted).filter(([sec]) => sec === mySecName)
+                    return entries
+                  })().length
+                    ? ((() => {
+                        const mySecName = (mySectionId != null ? (sectionDisplayMap[String(mySectionId)] || '') : '') || sectionPrefix || sectionLabel || ''
+                        return Object.entries(inboundSectionGroupsCompleted).filter(([sec]) => sec === mySecName)
+                      })()).map(([secName, groups]) => (
+                          <div key={secName} className="border border-github-border rounded-xl">
+                            <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
+                              <h3 className="text-white text-sm">{secName}</h3>
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs border border-github-border rounded bg-green-700 bg-opacity-30 text-green-300">Completed</span>
+                            </div>
+                            <div className="p-4">
+                              <table className="min-w-full text-sm">
+                                <thead className="text-gray-400">
+                                  <tr>
+                                    <th className="text-left p-2">Type</th>
+                                    <th className="text-left p-2">Task</th>
+                                    <th className="text-left p-2">Member</th>
+                                    <th className="text-left p-2">EDIPI</th>
+                                    <th className="text-left p-2">Company</th>
+                                    <th className="text-left p-2">Section</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {groups.map(({ subTaskId, members }) => {
+                                    const label = taskLabels[subTaskId]
+                                    const taskDesc = label?.description || subTaskId
+                                    return members.map(mid => {
+                                      const m = memberMap[mid]
+                                      const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
+                                      const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
+                                      const edipi = m?.edipi || mid
+                                      const company = m?.company_id || ''
+                                      return (
+                                        <tr key={`${secName}-${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
+                                          <td className="p-2">{formNameByTask[subTaskId] || 'Inbound'}</td>
+                                          <td className="p-2">{taskDesc}</td>
+                                          <td className="p-2">{memberDisp}</td>
+                                          <td className="p-2">{edipi}</td>
+                                          <td className="p-2">{company}</td>
+                                          <td className="p-2">{secName}</td>
+                                        </tr>
+                                      )
+                                    })
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                          <div className="p-4">
-                            <table className="min-w-full text-sm">
-                              <thead className="text-gray-400">
-                                <tr>
-                                  <th className="text-left p-2">Type</th>
-                                  <th className="text-left p-2">Task</th>
-                                  <th className="text-left p-2">Member</th>
-                                  <th className="text-left p-2">EDIPI</th>
-                                  <th className="text-left p-2">Company</th>
-                                  <th className="text-left p-2">Section</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {groups.map(({ subTaskId, members }) => {
-                                  const label = taskLabels[subTaskId]
-                                  const taskDesc = label?.description || subTaskId
-                                  return members.map(mid => {
-                                    const m = memberMap[mid]
-                                    const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
-                                    const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
-                                    const edipi = m?.edipi || mid
-                                    const company = m?.company_id || ''
-                                    return (
-                                      <tr key={`${secName}-${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
-                                        <td className="p-2">{formNameByTask[subTaskId] || 'Inbound'}</td>
-                                        <td className="p-2">{taskDesc}</td>
-                                        <td className="p-2">{memberDisp}</td>
-                                        <td className="p-2">{edipi}</td>
-                                        <td className="p-2">{company}</td>
-                                        <td className="p-2">{secName}</td>
-                                      </tr>
-                                    )
-                                  })
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))
-                    : (
+                        ))
+                      : (
                         <div className="border border-github-border rounded-xl">
                           <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
                             <h3 className="text-white text-sm">{sectionLabel || 'Section'}</h3>
@@ -674,27 +675,83 @@ export default function TaskManagerDashboard() {
                   </div>
                 )}
                 {outboundView === 'Completed' && (
-                  <div className="border border-github-border rounded-xl">
-                    <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
-                      <h3 className="text-white text-sm">{sectionLabel || 'Section'}</h3>
-                      <span className="inline-flex items-center px-2 py-0.5 text-xs border border-github-border rounded bg-green-700 bg-opacity-30 text-green-300">Completed</span>
-                    </div>
-                    <div className="p-4">
-                      <table className="min-w-full text-sm">
-                        <thead className="text-gray-400">
-                          <tr>
-                            <th className="text-left p-2">Task</th>
-                            <th className="text-left p-2">Member</th>
-                            <th className="text-left p-2">EDIPI</th>
-                            <th className="text-left p-2">Company</th>
-                            <th className="text-left p-2">Section</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  ((() => {
+                    const mySecName = (mySectionId != null ? (sectionDisplayMap[String(mySectionId)] || '') : '') || sectionPrefix || sectionLabel || ''
+                    const entries = Object.entries(outboundSectionGroupsCompleted).filter(([sec]) => sec === mySecName)
+                    return entries
+                  })().length
+                    ? ((() => {
+                        const mySecName = (mySectionId != null ? (sectionDisplayMap[String(mySectionId)] || '') : '') || sectionPrefix || sectionLabel || ''
+                        return Object.entries(outboundSectionGroupsCompleted).filter(([sec]) => sec === mySecName)
+                      })()).map(([secName, groups]) => (
+                        <div key={secName} className="border border-github-border rounded-xl">
+                          <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
+                            <h3 className="text-white text-sm">{secName}</h3>
+                            <span className="inline-flex items-center px-2 py-0.5 text-xs border border-github-border rounded bg-green-700 bg-opacity-30 text-green-300">Completed</span>
+                          </div>
+                          <div className="p-4">
+                            <table className="min-w-full text-sm">
+                              <thead className="text-gray-400">
+                                <tr>
+                                  <th className="text-left p-2">Type</th>
+                                  <th className="text-left p-2">Task</th>
+                                  <th className="text-left p-2">Member</th>
+                                  <th className="text-left p-2">EDIPI</th>
+                                  <th className="text-left p-2">Company</th>
+                                  <th className="text-left p-2">Section</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {groups.map(({ subTaskId, members }) => {
+                                  const label = taskLabels[subTaskId]
+                                  const taskDesc = label?.description || subTaskId
+                                  return members.map(mid => {
+                                    const m = memberMap[mid]
+                                    const fullName = [m?.first_name, m?.last_name].filter(Boolean).join(' ')
+                                    const memberDisp = [m?.rank, fullName].filter(Boolean).join(' ') || mid
+                                    const edipi = m?.edipi || mid
+                                    const company = m?.company_id || ''
+                                    return (
+                                      <tr key={`${secName}-${subTaskId}-${mid}`} className="border-t border-github-border text-gray-300">
+                                        <td className="p-2">{formNameByTask[subTaskId] || 'Outbound'}</td>
+                                        <td className="p-2">{taskDesc}</td>
+                                        <td className="p-2">{memberDisp}</td>
+                                        <td className="p-2">{edipi}</td>
+                                        <td className="p-2">{company}</td>
+                                        <td className="p-2">{secName}</td>
+                                      </tr>
+                                    )
+                                  })
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))
+                    : (
+                        <div className="border border-github-border rounded-xl">
+                          <div className="px-4 py-3 border-b border-github-border flex items-center justify-between">
+                            <h3 className="text-white text-sm">{sectionLabel || 'Section'}</h3>
+                            <span className="inline-flex items-center px-2 py-0.5 text-xs border border-github-border rounded bg-green-700 bg-opacity-30 text-green-300">Completed</span>
+                          </div>
+                          <div className="p-4">
+                            <table className="min-w-full text-sm">
+                              <thead className="text-gray-400">
+                                <tr>
+                                  <th className="text-left p-2">Task</th>
+                                  <th className="text-left p-2">Member</th>
+                                  <th className="text-left p-2">EDIPI</th>
+                                  <th className="text-left p-2">Company</th>
+                                  <th className="text-left p-2">Section</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )
+                  )
                 )}
                 
 

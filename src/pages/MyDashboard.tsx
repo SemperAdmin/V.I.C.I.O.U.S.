@@ -455,7 +455,7 @@ export default function MyDashboard() {
                         <div className="text-left p-2">Form</div>
                         <div className="text-left p-2">Unit</div>
                         <div className="text-left p-2">Arrival</div>
-                        <div className="text-left p-2">Done/Total</div>
+                        <div className="text-left p-2">Completed</div>
                         <div className="text-left p-2">Action</div>
                       </div>
                     <div className="text-sm">
@@ -553,7 +553,7 @@ export default function MyDashboard() {
                           <div className="text-left p-2">Form</div>
                           <div className="text-left p-2">Unit</div>
                           <div className="text-left p-2">Arrival</div>
-                          <div className="text-left p-2">Done/Total</div>
+                          <div className="text-left p-2">Completed</div>
                           <div className="text-left p-2">Action</div>
                         </div>
                         <div className="text-sm">
@@ -643,7 +643,7 @@ export default function MyDashboard() {
                         <div className="text-left p-2">Form</div>
                         <div className="text-left p-2">Unit</div>
                         <div className="text-left p-2">Arrival</div>
-                        <div className="text-left p-2">Done/Total</div>
+                        <div className="text-left p-2">Completed</div>
                         <div className="text-left p-2">Action</div>
                       </div>
                     <div className="text-sm">
@@ -660,12 +660,7 @@ export default function MyDashboard() {
                             <div className="p-2">{i.form_name}</div>
                             <div className="p-2">{user?.unit_id || ''}</div>
                             <div className="p-2">{(i as any)?.arrival_date || (arrivalDate || new Date().toISOString().slice(0,10))}</div>
-                            <div className="p-2">{(() => {
-                              const ids = Array.isArray((i as any)?.task_ids) ? (((i as any).task_ids || []) as string[]) : (((i as any)?.tasks || []).map((t: any) => t.sub_task_id))
-                              const total = typeof (i as any)?.total_count === 'number' ? Number((i as any).total_count) : ids.length
-                              const done = typeof (i as any)?.completed_count === 'number' ? Number((i as any).completed_count) : 0
-                              return `${done}/${total}`
-                            })()}</div>
+                            <div className="p-2">{new Date(((i as any)?.completed_at || i.created_at)).toLocaleDateString()}</div>
                             <div className="p-2">
                               <button
                                 className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
@@ -920,7 +915,7 @@ export default function MyDashboard() {
                         <div className="text-left p-2">Unit</div>
                         <div className="text-left p-2">EDIPI</div>
                         <div className="text-left p-2">Created</div>
-                        <div className="text-left p-2">Done/Total</div>
+                        <div className="text-left p-2">Completed</div>
                         <div className="text-left p-2">Action</div>
                       </div>
                       <div className="text-sm">
@@ -938,11 +933,7 @@ export default function MyDashboard() {
                               <div className="p-2">{user?.unit_id || ''}</div>
                               <div className="p-2">{user?.edipi || ''}</div>
                               <div className="p-2">{new Date(i.created_at).toLocaleDateString()}</div>
-                              <div className="p-2">{(() => {
-                                const total = typeof (i as any)?.total_count === 'number' ? Number((i as any).total_count) : (Array.isArray((i as any)?.task_ids) ? (((i as any).task_ids || []) as string[]).length : (((i as any)?.tasks || []) as any[]).length)
-                                const done = typeof (i as any)?.completed_count === 'number' ? Number((i as any).completed_count) : 0
-                                return `${done}/${total}`
-                              })()}</div>
+                              <div className="p-2">{new Date(((i as any)?.completed_at || i.created_at)).toLocaleDateString()}</div>
                               <div className="p-2">
                                 <button
                                   className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
