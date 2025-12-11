@@ -29,6 +29,7 @@ export default function MyDashboard() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'inbound' | 'outbound' | 'sponsees'>('inbound')
   const [sponsees, setSponsees] = useState<MyFormSubmission[]>([])
+  const [expandedSponsee, setExpandedSponsee] = useState<number | null>(null)
   const [inboundView, setInboundView] = useState<'Pending' | 'Completed'>('Pending')
   const [outboundView, setOutboundView] = useState<'Pending' | 'Completed'>('Pending')
   const [createOpen, setCreateOpen] = useState(false)
@@ -1059,43 +1060,89 @@ export default function MyDashboard() {
                         <tr>
                           <th className="text-left p-2">Member</th>
                           <th className="text-left p-2">EDIPI</th>
-                          <th className="text-left p-2 hidden sm:table-cell">Form</th>
+                          <th className="text-left p-2 hidden sm:table-cell">Current Unit</th>
                           <th className="text-left p-2">Departure</th>
-                          <th className="text-left p-2">Progress</th>
                         </tr>
                       </thead>
                       <tbody>
                         {sponsees.map((submission) => {
                           const member = submission.member
                           const memberName = [member?.rank, member?.first_name, member?.last_name].filter(Boolean).join(' ')
-                          const completed = typeof submission.completed_count === 'number' ? submission.completed_count : 0
-                          const total = typeof submission.total_count === 'number' ? submission.total_count : (submission.tasks?.length || 0)
-                          const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
-                          const isComplete = completed === total && total > 0
+                          const memberProfile = memberMap[submission.user_id] || memberMap[member?.edipi || '']
+                          const currentUnit = memberProfile?.unit_id || submission.unit_id || ''
+                          const isExpanded = expandedSponsee === submission.id
+
+                          // Helper to get unit name from unit_id
+                          const getUnitName = (unitId: string) => {
+                            if (!unitId) return ''
+                            const parts = unitId.split('-')
+                            const ruc = parts.length >= 2 ? parts[1] : unitId
+                            const unit = UNITS.find(u => u.ruc === ruc || `${u.uic}-${u.ruc}-${u.mcc}` === unitId)
+                            return unit ? `${unit.unitName} (${unit.mcc})` : unitId
+                          }
 
                           return (
-                            <tr key={submission.id} className="border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 transition-colors">
-                              <td className="p-2">
-                                <div>{memberName || 'Unknown'}</div>
-                                <div className="text-xs text-gray-500 sm:hidden">{submission.form_name}</div>
-                              </td>
-                              <td className="p-2">{member?.edipi || ''}</td>
-                              <td className="p-2 hidden sm:table-cell">{submission.form_name}</td>
-                              <td className="p-2">{submission.departure_date || 'N/A'}</td>
-                              <td className="p-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-20 bg-gray-700 rounded-full h-2">
-                                    <div
-                                      className={`h-2 rounded-full ${isComplete ? 'bg-green-500' : 'bg-github-blue'}`}
-                                      style={{ width: `${progressPct}%` }}
-                                    />
-                                  </div>
-                                  <span className={`text-xs ${isComplete ? 'text-green-400' : 'text-gray-400'}`}>
-                                    {completed}/{total}
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
+                            <>
+                              <tr
+                                key={submission.id}
+                                className={`border-t border-github-border text-gray-300 hover:bg-red-900 hover:bg-opacity-30 cursor-pointer transition-colors ${isExpanded ? 'bg-red-900 bg-opacity-20' : ''}`}
+                                onClick={() => setExpandedSponsee(isExpanded ? null : submission.id)}
+                              >
+                                <td className="p-2">
+                                  <div>{memberName || 'Unknown'}</div>
+                                  <div className="text-xs text-gray-500 sm:hidden">{getUnitName(currentUnit)}</div>
+                                </td>
+                                <td className="p-2">{member?.edipi || ''}</td>
+                                <td className="p-2 hidden sm:table-cell">{getUnitName(currentUnit)}</td>
+                                <td className="p-2">{submission.departure_date || 'N/A'}</td>
+                              </tr>
+                              {isExpanded && (
+                                <tr key={`${submission.id}-details`} className="bg-github-gray bg-opacity-5">
+                                  <td colSpan={4} className="p-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                      <div>
+                                        <h4 className="text-gray-400 text-xs uppercase mb-2">Personal Information</h4>
+                                        <div className="space-y-1">
+                                          <div><span className="text-gray-500">Full Name:</span> <span className="text-white">{memberName}</span></div>
+                                          <div><span className="text-gray-500">Rank:</span> <span className="text-white">{member?.rank || 'N/A'}</span></div>
+                                          <div><span className="text-gray-500">EDIPI:</span> <span className="text-white">{member?.edipi || 'N/A'}</span></div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <h4 className="text-gray-400 text-xs uppercase mb-2">Contact Information</h4>
+                                        <div className="space-y-1">
+                                          <div><span className="text-gray-500">Email:</span> <span className="text-white">{member?.email || memberProfile?.email || 'N/A'}</span></div>
+                                          <div><span className="text-gray-500">Phone:</span> <span className="text-white">{member?.phone_number || memberProfile?.phone_number || 'N/A'}</span></div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <h4 className="text-gray-400 text-xs uppercase mb-2">Transfer Details</h4>
+                                        <div className="space-y-1">
+                                          <div><span className="text-gray-500">Current Unit:</span> <span className="text-white">{getUnitName(currentUnit)}</span></div>
+                                          <div><span className="text-gray-500">Destination:</span> <span className="text-white">{getUnitName(submission.destination_unit_id || '')}</span></div>
+                                          <div><span className="text-gray-500">Departure Date:</span> <span className="text-white">{submission.departure_date || 'N/A'}</span></div>
+                                          <div><span className="text-gray-500">Form:</span> <span className="text-white">{submission.form_name}</span></div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <h4 className="text-gray-400 text-xs uppercase mb-2">Current Assignment</h4>
+                                        <div className="space-y-1">
+                                          <div><span className="text-gray-500">Company:</span> <span className="text-white">{member?.company_id || 'N/A'}</span></div>
+                                          <div><span className="text-gray-500">Section:</span> <span className="text-white">{member?.platoon_id || 'N/A'}</span></div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <h4 className="text-gray-400 text-xs uppercase mb-2">Form Progress</h4>
+                                        <div className="space-y-1">
+                                          <div><span className="text-gray-500">Status:</span> <span className={submission.status === 'Completed' ? 'text-green-400' : 'text-yellow-400'}>{submission.status || 'In_Progress'}</span></div>
+                                          <div><span className="text-gray-500">Progress:</span> <span className="text-white">{submission.completed_count || 0}/{submission.total_count || 0} tasks</span></div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
                           )
                         })}
                       </tbody>
