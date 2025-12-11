@@ -315,8 +315,8 @@ export default function UnitAdminDashboard() {
       {adminRucs.length > 0 && (
         <div className="bg-github-gray bg-opacity-5 border-b border-github-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium text-gray-300">Managing RUC:</label>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              <label className="text-sm font-medium text-gray-300 whitespace-nowrap">Managing RUC:</label>
               {adminRucs.length === 1 ? (
                 <span className="text-white text-sm font-semibold">{adminRucs[0].ruc}</span>
               ) : (
@@ -336,7 +336,7 @@ export default function UnitAdminDashboard() {
               {rucSwitching && (
                 <span className="text-gray-400 text-sm animate-pulse">Loading...</span>
               )}
-              <span className="text-gray-400 text-xs">Use tabs below to manage all units under this RUC</span>
+              <span className="hidden sm:inline text-gray-400 text-xs">Use tabs below to manage all units under this RUC</span>
             </div>
           </div>
         </div>
@@ -351,58 +351,59 @@ export default function UnitAdminDashboard() {
               </div>
             </div>
           )}
-          <div className="flex border-b border-github-border">
+          <div className="flex overflow-x-auto border-b border-github-border scrollbar-hide">
             <button
               onClick={() => setTab('members')}
-              className={`px-4 py-3 text-sm ${tab === 'members' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              className={`px-3 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${tab === 'members' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
-              Assigned Members
+              Members
             </button>
             <button
               onClick={() => setTab('forms')}
-              className={`px-4 py-3 text-sm ${tab === 'forms' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              className={`px-3 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${tab === 'forms' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
               Forms
             </button>
             <button
               onClick={() => setTab('tasks')}
-              className={`px-4 py-3 text-sm ${tab === 'tasks' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              className={`px-3 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${tab === 'tasks' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
               Tasks
             </button>
             <button
               onClick={() => setTab('assign')}
-              className={`px-4 py-3 text-sm ${tab === 'assign' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              className={`px-3 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${tab === 'assign' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
-              Unit Management
+              Units
             </button>
             <button
               onClick={() => setTab('structure')}
-              className={`px-4 py-3 text-sm ${tab === 'structure' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+              className={`px-3 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${tab === 'structure' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
-              Unit Structure
+              Structure
             </button>
           </div>
           
-          <div className="p-6">
+          <div className="p-3 sm:p-6">
             {tab === 'assign' && (
               <div className="space-y-4">
                 <div className="text-gray-300">Assign units under RUC {rucDisplay} to manage</div>
-                <div className="flex border-b border-github-border">
+                <div className="flex overflow-x-auto border-b border-github-border">
                   <button
                     onClick={() => setAssignTab('assigned')}
-                    className={`px-4 py-2 text-sm ${assignTab === 'assigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+                    className={`px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap ${assignTab === 'assigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
                   >
-                    Assigned Units
+                    Assigned
                   </button>
                   <button
                     onClick={() => setAssignTab('unassigned')}
-                    className={`px-4 py-2 text-sm ${assignTab === 'unassigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+                    className={`px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap ${assignTab === 'unassigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
                   >
-                    Unassigned Units
+                    Unassigned
                   </button>
                 </div>
-                <table className="min-w-full text-sm">
+                <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <table className="min-w-full text-xs sm:text-sm">
                   <thead className="text-gray-400">
                     <tr>
                       <th className="text-left p-2">Unit</th>
@@ -555,6 +556,7 @@ export default function UnitAdminDashboard() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
             {tab === 'structure' && (
@@ -565,7 +567,8 @@ export default function UnitAdminDashboard() {
                     <div className="text-yellow-400 text-sm">No companies available. Create one below.</div>
                   )}
                 </div>
-                <table className="min-w-full text-sm">
+                <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <table className="min-w-full text-xs sm:text-sm">
                   <thead className="text-gray-400">
                     <tr>
                       <th className="text-left p-2">Company</th>
@@ -581,15 +584,15 @@ export default function UnitAdminDashboard() {
                           value={newCompanyId}
                           onChange={e => setNewCompanyId(e.target.value)}
                           placeholder="Company"
-                          className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                          className="w-full min-w-[80px] px-2 sm:px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs sm:text-sm"
                         />
                       </td>
                       <td className="p-2">
                         <input
                           value={newSectionName}
                           onChange={e => setNewSectionName(e.target.value)}
-                          placeholder="Section code"
-                          className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                          placeholder="Code"
+                          className="w-full min-w-[80px] px-2 sm:px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs sm:text-sm"
                         />
                       </td>
                       <td className="p-2">
@@ -597,7 +600,7 @@ export default function UnitAdminDashboard() {
                           value={newSectionDisplay}
                           onChange={e => setNewSectionDisplay(e.target.value)}
                           placeholder="Name"
-                          className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                          className="w-full min-w-[80px] px-2 sm:px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs sm:text-sm"
                         />
                       </td>
                       <td className="p-2">
@@ -628,9 +631,9 @@ export default function UnitAdminDashboard() {
                               setCompaniesError(msg || 'Failed to create company/section')
                             }
                           }}
-                          className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                          className="px-2 sm:px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded text-xs sm:text-sm whitespace-nowrap"
                         >
-                          Create Section
+                          Create
                         </button>
                       </td>
                     </tr>
@@ -638,26 +641,27 @@ export default function UnitAdminDashboard() {
                       <tr key={s.id} className="border-t border-github-border text-gray-300">
                         <td className="p-2">
                           {editingId === s.id ? (
-                            <input value={editCompanyId} onChange={e => setEditCompanyId(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            <input value={editCompanyId} onChange={e => setEditCompanyId(e.target.value)} className="w-full min-w-[60px] px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs sm:text-sm" />
                           ) : (
                             (s as any).company_id || ''
                           )}
                         </td>
                         <td className="p-2">
                           {editingId === s.id ? (
-                            <input value={editSectionCode} onChange={e => setEditSectionCode(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            <input value={editSectionCode} onChange={e => setEditSectionCode(e.target.value)} className="w-full min-w-[60px] px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs sm:text-sm" />
                           ) : (
                             s.section_name
                           )}
                         </td>
                         <td className="p-2">
                           {editingId === s.id ? (
-                            <input value={editDisplay} onChange={e => setEditDisplay(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            <input value={editDisplay} onChange={e => setEditDisplay(e.target.value)} className="w-full min-w-[60px] px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs sm:text-sm" />
                           ) : (
                             (s as any).display_name || ''
                           )}
                         </td>
-                        <td className="p-2 flex gap-2">
+                        <td className="p-2">
+                          <div className="flex flex-wrap gap-1 sm:gap-2">
                           {editingId === s.id ? (
                             <>
                               <button
@@ -674,7 +678,7 @@ export default function UnitAdminDashboard() {
                                   setEditSectionCode('')
                                   setEditDisplay('')
                                 }}
-                                className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
+                                className="px-2 sm:px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs sm:text-sm"
                               >
                                 Save
                               </button>
@@ -685,7 +689,7 @@ export default function UnitAdminDashboard() {
                                   setEditSectionCode('')
                                   setEditDisplay('')
                                 }}
-                                className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                                className="px-2 sm:px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs sm:text-sm"
                               >
                                 Cancel
                               </button>
@@ -699,7 +703,7 @@ export default function UnitAdminDashboard() {
                                   setEditSectionCode(s.section_name)
                                   setEditDisplay((s as any).display_name || '')
                                 }}
-                                className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
+                                className="px-2 sm:px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs sm:text-sm"
                               >
                                 Edit
                               </button>
@@ -708,24 +712,26 @@ export default function UnitAdminDashboard() {
                                   await deleteSection(s.id)
                                   setSections(await listSections(unitId))
                                 }}
-                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                                className="px-2 sm:px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs sm:text-sm"
                               >
-                                Remove
+                                Del
                               </button>
                             </>
                           )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
                 {companiesError && (
                   <div className="text-red-400 text-sm">{companiesError}</div>
                 )}
               </div>
             )}
             {tab === 'tasks' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <button
                   onClick={async () => {
                     setTasksError('')
@@ -736,16 +742,16 @@ export default function UnitAdminDashboard() {
                     setNewTask({ section_id: defaultSectionId, sub_task_id: '', description: '', responsible_user_ids: defaultEdipis.join(', '), location: '', instructions: '' })
                     setCreateModalOpen(true)
                   }}
-                  className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                  className="px-3 sm:px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded text-sm"
                 >
-                  Create Task
+                  + New Task
                 </button>
                 {tasksError && (
                   <div className="text-red-400 text-sm">{tasksError}</div>
                 )}
                 {createModalOpen && (
-                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-6">
+                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
                       <h3 className="text-white text-lg mb-4">Create Task</h3>
                       <div className="grid grid-cols-1 gap-3">
                         <select
@@ -856,63 +862,65 @@ export default function UnitAdminDashboard() {
                     </div>
                   </div>
                 )}
-                <table className="min-w-full text-sm">
+                <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <table className="min-w-full text-xs sm:text-sm">
                   <thead className="text-gray-400">
                     <tr>
-                      <th className="text-left p-2">Section</th>
-                      <th className="text-left p-2">Description</th>
-                      <th className="text-left p-2">Location</th>
-                      <th className="text-left p-2">Instructions</th>
-                      <th className="text-left p-2">Responsible</th>
-                      <th className="text-left p-2">Completion</th>
-                      <th className="text-left p-2">Actions</th>
+                      <th className="text-left p-2 whitespace-nowrap">Section</th>
+                      <th className="text-left p-2 whitespace-nowrap">Description</th>
+                      <th className="text-left p-2 whitespace-nowrap hidden sm:table-cell">Location</th>
+                      <th className="text-left p-2 whitespace-nowrap hidden md:table-cell">Instructions</th>
+                      <th className="text-left p-2 whitespace-nowrap hidden lg:table-cell">Responsible</th>
+                      <th className="text-left p-2 whitespace-nowrap hidden sm:table-cell">Completion</th>
+                      <th className="text-left p-2 whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tasks.map(t => (
                       <tr key={t.id} className="border-t border-github-border text-gray-300">
-                        <td className="p-2">{(() => {
+                        <td className="p-2 whitespace-nowrap">{(() => {
                           const sec = sections.find(s => s.id === t.section_id)
                           return (sec as any)?.display_name || sec?.section_name || ''
                         })()}</td>
-                        <td className="p-2">{taskEditingId === t.id ? (
-                          <input value={taskEditDescription} onChange={e => setTaskEditDescription(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        <td className="p-2 max-w-[150px] sm:max-w-none truncate sm:whitespace-normal">{taskEditingId === t.id ? (
+                          <input value={taskEditDescription} onChange={e => setTaskEditDescription(e.target.value)} className="w-full min-w-[100px] px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs sm:text-sm" />
                         ) : (t.description)}</td>
-                        <td className="p-2">{taskEditingId === t.id ? (
-                          <div className="grid grid-cols-2 gap-2 items-center">
-                            <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} placeholder="Location" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
-                            <input value={taskEditLocationUrl} onChange={e => setTaskEditLocationUrl(e.target.value)} placeholder="Map URL" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        <td className="p-2 hidden sm:table-cell">{taskEditingId === t.id ? (
+                          <div className="grid grid-cols-1 gap-1">
+                            <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} placeholder="Location" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs" />
+                            <input value={taskEditLocationUrl} onChange={e => setTaskEditLocationUrl(e.target.value)} placeholder="Map URL" className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs" />
                           </div>
                         ) : ((t as any).map_url || t.location ? (
                           <a href={((t as any).map_url || googleMapsLink(t.location || ''))} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{t.location || 'Map'}</a>
                         ) : '')}</td>
-                        <td className="p-2">{taskEditingId === t.id ? (
-                          <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                        <td className="p-2 hidden md:table-cell max-w-[150px] truncate">{taskEditingId === t.id ? (
+                          <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs" />
                         ) : (t.instructions || '')}</td>
-                        <td className="p-2">{(t.responsible_user_ids || []).map((id: string) => {
+                        <td className="p-2 hidden lg:table-cell">{(t.responsible_user_ids || []).map((id: string) => {
                           const u = edipiMap[id]
                           const rank = u?.rank || ''
                           const name = [u?.first_name, u?.last_name].filter(Boolean).join(' ')
                           const disp = [rank, name].filter(Boolean).join(' ')
                           return disp || id
                         }).join(', ')}</td>
-                        <td className="p-2">{taskEditingId === t.id ? (
-                          <div className="grid grid-cols-1 gap-2">
-                            <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white">
-                              <option value="">Completion type</option>
+                        <td className="p-2 hidden sm:table-cell">{taskEditingId === t.id ? (
+                          <div className="grid grid-cols-1 gap-1">
+                            <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs">
+                              <option value="">Type</option>
                               <option value="Text">Text</option>
                               <option value="Date">Date</option>
                               <option value="Options">Options</option>
                             </select>
-                            <input value={taskEditCompletionLabel} onChange={e => setTaskEditCompletionLabel(e.target.value)} placeholder="Label" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                            <input value={taskEditCompletionLabel} onChange={e => setTaskEditCompletionLabel(e.target.value)} placeholder="Label" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs" />
                             {taskEditCompletionKind === 'Options' && (
-                              <input value={taskEditCompletionOptions} onChange={e => setTaskEditCompletionOptions(e.target.value)} placeholder="Options (comma-separated)" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white" />
+                              <input value={taskEditCompletionOptions} onChange={e => setTaskEditCompletionOptions(e.target.value)} placeholder="Options" className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs" />
                             )}
                           </div>
                         ) : (
-                          [t.completion_kind, t.completion_label, (t.completion_options || []).join('/')].filter(Boolean).join(' • ')
+                          <span className="text-xs">{[t.completion_kind, t.completion_label].filter(Boolean).join(': ')}</span>
                         )}</td>
-                        <td className="p-2 flex gap-2">
+                        <td className="p-2">
+                          <div className="flex flex-wrap gap-1">
                           {taskEditingId === t.id ? (
                             <>
                               <button
@@ -936,7 +944,7 @@ export default function UnitAdminDashboard() {
                                   setTaskEditCompletionLabel('')
                                   setTaskEditCompletionOptions('')
                                 }}
-                                className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
+                                className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                               >
                                 Save
                               </button>
@@ -948,9 +956,9 @@ export default function UnitAdminDashboard() {
                                   setTaskEditLocationUrl('')
                                   setTaskEditInstructions('')
                                 }}
-                                className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                                className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs"
                               >
-                                Cancel
+                                X
                               </button>
                             </>
                           ) : (
@@ -966,7 +974,7 @@ export default function UnitAdminDashboard() {
                                   setTaskEditCompletionLabel(t.completion_label || '')
                                   setTaskEditCompletionOptions((t.completion_options || []).join(', '))
                                 }}
-                                className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
+                                className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                               >
                                 Edit
                               </button>
@@ -975,24 +983,25 @@ export default function UnitAdminDashboard() {
                                   await deleteSubTask(t.id)
                                   setTasks(await listSubTasks(unitId))
                                 }}
-                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                                className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
                               >
-                                Remove
+                                Del
                               </button>
                             </>
                           )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                
+                </div>
               </div>
             )}
             {tab === 'forms' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <div className="text-gray-300">Create inbound/outbound requirements from unit tasks</div>
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div className="text-gray-300 text-sm sm:text-base">Create inbound/outbound requirements</div>
                   <button
                     onClick={() => {
                       setFormsError('')
@@ -1003,15 +1012,15 @@ export default function UnitAdminDashboard() {
                       setNewFormPurpose('PCS')
                       setCreateModalOpen(true)
                     }}
-                    className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                    className="px-3 sm:px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded text-sm whitespace-nowrap"
                   >
-                    Create Form
+                    + New Form
                   </button>
                 </div>
 
                 {createModalOpen && (
-                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-6">
+                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
                       <h3 className="text-white text-lg mb-4">{editingFormId ? 'Edit Form' : 'New Form'}</h3>
                       <div className="grid grid-cols-1 gap-3">
                         <input
@@ -1149,12 +1158,13 @@ export default function UnitAdminDashboard() {
                   </div>
                 )}
 
-                <table className="min-w-full text-sm">
+                <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <table className="min-w-full text-xs sm:text-sm">
                   <thead className="text-gray-400">
                     <tr>
                       <th className="text-left p-2">Name</th>
                       <th className="text-left p-2">Type</th>
-                      <th className="text-left p-2">Purpose</th>
+                      <th className="text-left p-2 hidden sm:table-cell">Purpose</th>
                       <th className="text-left p-2">Tasks</th>
                       <th className="text-left p-2">Actions</th>
                     </tr>
@@ -1163,21 +1173,22 @@ export default function UnitAdminDashboard() {
                     {forms.map(f => (
                       <tr key={f.id} className="border-t border-github-border text-gray-300">
                         <td className="p-2">{f.name}</td>
-                        <td className="p-2">{f.kind}</td>
-                        <td className="p-2">{(() => {
+                        <td className="p-2 whitespace-nowrap">{f.kind}</td>
+                        <td className="p-2 hidden sm:table-cell">{(() => {
                           switch (f.purpose) {
-                            case 'Fleet_Assistance_Program': return 'Fleet Assistance Program'
-                            case 'TAD_31_plus_days': return 'Temporary Additional Duty 31+ days'
-                            case 'TAD_30_or_less': return 'Temporary Additional Duty 30 days or less'
-                            case 'PCA': return 'Permanent Change of Assignment'
-                            case 'PCS': return 'Permanent Change of Station'
-                            case 'Separation': return 'Separation'
-                            case 'Retirement': return 'Retirement'
+                            case 'Fleet_Assistance_Program': return 'FAP'
+                            case 'TAD_31_plus_days': return 'TAD 31+'
+                            case 'TAD_30_or_less': return 'TAD ≤30'
+                            case 'PCA': return 'PCA'
+                            case 'PCS': return 'PCS'
+                            case 'Separation': return 'Sep'
+                            case 'Retirement': return 'Ret'
                             default: return ''
                           }
                         })()}</td>
-                        <td className="p-2">{f.task_ids.length}</td>
-                        <td className="p-2 flex gap-2">
+                        <td className="p-2 text-center">{f.task_ids.length}</td>
+                        <td className="p-2">
+                          <div className="flex flex-wrap gap-1">
                           <button
                             onClick={() => {
                               setFormsError('')
@@ -1189,7 +1200,7 @@ export default function UnitAdminDashboard() {
                               ;(async () => { setTasks(await listSubTasks(unitId)) })()
                               setCreateModalOpen(true)
                             }}
-                            className="px-3 py-1 bg-github-blue hover:bg-blue-600 text-white rounded"
+                            className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                           >
                             Edit
                           </button>
@@ -1198,30 +1209,33 @@ export default function UnitAdminDashboard() {
                               await deleteForm(unitId, f.id)
                               setForms(await listForms(unitId))
                             }}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
                           >
-                            Remove
+                            Del
                           </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
                 {formsError && (
                   <div className="text-red-400 text-sm">{formsError}</div>
                 )}
               </div>
             )}
             {tab === 'members' && (
-              <div className="space-y-6">
-                <table className="min-w-full text-sm">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <table className="min-w-full text-xs sm:text-sm">
                   <thead className="text-gray-400">
                     <tr>
                       <th className="text-left p-2">Member</th>
-                      <th className="text-left p-2">Company</th>
-                      <th className="text-left p-2">Section</th>
+                      <th className="text-left p-2 hidden sm:table-cell">Company</th>
+                      <th className="text-left p-2 hidden sm:table-cell">Section</th>
                       <th className="text-left p-2">Role</th>
-                      <th className="text-left p-2">Update</th>
+                      <th className="text-left p-2">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1238,10 +1252,13 @@ export default function UnitAdminDashboard() {
                       })()
                       return (
                         <tr key={p.edipi} className="border-t border-github-border text-gray-300">
-                          <td className="p-2">{[p.rank, name].filter(Boolean).join(' ')}</td>
-                          <td className="p-2">{company || ''}</td>
-                          <td className="p-2">{sectionLabel}</td>
-                          <td className="p-2">{role}</td>
+                          <td className="p-2">
+                            <div>{[p.rank, name].filter(Boolean).join(' ')}</div>
+                            <div className="text-xs text-gray-500 sm:hidden">{[company, sectionLabel].filter(Boolean).join(' • ')}</div>
+                          </td>
+                          <td className="p-2 hidden sm:table-cell">{company || ''}</td>
+                          <td className="p-2 hidden sm:table-cell">{sectionLabel}</td>
+                          <td className="p-2 whitespace-nowrap">{role === 'Section_Manager' ? 'Sec Mgr' : role}</td>
                           <td className="p-2">
                             <button
                               onClick={() => {
@@ -1250,9 +1267,9 @@ export default function UnitAdminDashboard() {
                                 setEditMemberSection(String(p.platoon_id || ''))
                                 setEditMemberRole((role as any) || 'Member')
                               }}
-                              className="px-3 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                              className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
                             >
-                              Update
+                              Edit
                             </button>
                           </td>
                         </tr>
@@ -1260,9 +1277,10 @@ export default function UnitAdminDashboard() {
                     })}
                   </tbody>
                 </table>
+                </div>
                 {editMemberEdipi && (
-                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-6">
+                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                    <div className="w-full max-w-lg bg-black border border-github-border rounded-xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
                       <h3 className="text-white text-lg mb-4">Update Member</h3>
                       <div className="grid grid-cols-1 gap-3">
                         <select
