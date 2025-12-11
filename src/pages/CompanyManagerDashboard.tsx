@@ -26,6 +26,26 @@ export default function CompanyManagerDashboard() {
   const [inboundView, setInboundView] = useState<'Pending' | 'Completed'>('Pending')
   const [outboundView, setOutboundView] = useState<'Pending' | 'Completed'>('Pending')
 
+  // Column filters
+  const [filterMember, setFilterMember] = useState('')
+  const [filterSection, setFilterSection] = useState('')
+  const [filterForm, setFilterForm] = useState('')
+
+  // Filter helper function
+  const filterRows = (rows: typeof companyFormStatus) => {
+    return rows.filter(row => {
+      const m = memberMap[row.user_id]
+      const memberName = m ? [m.rank, m.first_name, m.last_name].filter(Boolean).join(' ').toLowerCase() : row.user_id.toLowerCase()
+      const section = (row.section || '').toLowerCase()
+      const form = (row.form_name || '').toLowerCase()
+
+      if (filterMember && !memberName.includes(filterMember.toLowerCase())) return false
+      if (filterSection && !section.includes(filterSection.toLowerCase())) return false
+      if (filterForm && !form.includes(filterForm.toLowerCase())) return false
+      return true
+    })
+  }
+
   // Helper function to handle view details for submissions
   const handleViewDetails = async (
     row: { user_id: string; form_name: string; kind: 'Inbound' | 'Outbound'; created_at?: string },
@@ -264,9 +284,18 @@ export default function CompanyManagerDashboard() {
                           <th className="text-left p-2">Arrival</th>
                           <th className="text-left p-2">View</th>
                         </tr>
+                        <tr>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterMember} onChange={e => setFilterMember(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1 hidden sm:table-cell"></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterSection} onChange={e => setFilterSection(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterForm} onChange={e => setFilterForm(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                        </tr>
                       </thead>
                       <tbody>
-                        {companyFormStatus.filter(row => row.kind === 'Inbound' && row.status !== 'Completed').map(row => {
+                        {filterRows(companyFormStatus.filter(row => row.kind === 'Inbound' && row.status !== 'Completed')).map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
@@ -309,9 +338,18 @@ export default function CompanyManagerDashboard() {
                           <th className="text-left p-2">Arrival</th>
                           <th className="text-left p-2">View</th>
                         </tr>
+                        <tr>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterMember} onChange={e => setFilterMember(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1 hidden sm:table-cell"></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterSection} onChange={e => setFilterSection(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterForm} onChange={e => setFilterForm(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                        </tr>
                       </thead>
                       <tbody>
-                        {companyFormStatus.filter(row => row.kind === 'Inbound' && row.status === 'Completed').map(row => {
+                        {filterRows(companyFormStatus.filter(row => row.kind === 'Inbound' && row.status === 'Completed')).map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
@@ -425,9 +463,18 @@ export default function CompanyManagerDashboard() {
                           <th className="text-left p-2">Departure</th>
                           <th className="text-left p-2">View</th>
                         </tr>
+                        <tr>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterMember} onChange={e => setFilterMember(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1 hidden sm:table-cell"></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterSection} onChange={e => setFilterSection(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterForm} onChange={e => setFilterForm(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                        </tr>
                       </thead>
                       <tbody>
-                        {companyFormStatus.filter(row => row.kind === 'Outbound' && row.status !== 'Completed').map(row => {
+                        {filterRows(companyFormStatus.filter(row => row.kind === 'Outbound' && row.status !== 'Completed')).map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
@@ -470,9 +517,18 @@ export default function CompanyManagerDashboard() {
                           <th className="text-left p-2">Departure</th>
                           <th className="text-left p-2">View</th>
                         </tr>
+                        <tr>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterMember} onChange={e => setFilterMember(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1 hidden sm:table-cell"></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterSection} onChange={e => setFilterSection(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"><input type="text" placeholder="Filter..." value={filterForm} onChange={e => setFilterForm(e.target.value)} className="w-full px-2 py-1 text-xs bg-github-dark border border-github-border rounded text-white placeholder-gray-500" /></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                          <th className="p-1"></th>
+                        </tr>
                       </thead>
                       <tbody>
-                        {companyFormStatus.filter(row => row.kind === 'Outbound' && row.status === 'Completed').map(row => {
+                        {filterRows(companyFormStatus.filter(row => row.kind === 'Outbound' && row.status === 'Completed')).map(row => {
                           const m = memberMap[row.user_id]
                           const name = m ? [m.first_name, m.last_name].filter(Boolean).join(' ') : row.user_id
                           return (
