@@ -15,6 +15,7 @@ import { getAssignedUnitsForRuc, setAssignedUnitsForRuc } from '@/utils/adminSco
 import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbGetAdminRucs } from '@/services/adminService'
 import { getUnitAdmins, addUnitAdmin, removeUnitAdmin } from '@/utils/unitAdminsStore'
 import { sbListUsersByRuc, sbUpdateUser } from '@/services/supabaseDataService'
+import { QRCodeSVG } from 'qrcode.react'
 
 export default function UnitAdminDashboard() {
   const { user } = useAuthStore()
@@ -94,6 +95,8 @@ export default function UnitAdminDashboard() {
   const [newFormTaskIds, setNewFormTaskIds] = useState<string[]>([])
   const [editingFormId, setEditingFormId] = useState<number | null>(null)
   const [newFormPurpose, setNewFormPurpose] = useState<UnitFormPurpose>('PCS')
+  const [qrModalOpen, setQrModalOpen] = useState(false)
+  const [qrForm, setQrForm] = useState<UnitForm | null>(null)
   const [platoons, setPlatoons] = useState<string[]>([])
   const [selectedCompany, setSelectedCompany] = useState<string | undefined>(user?.company_id)
   const [selectedPlatoon, setSelectedPlatoon] = useState<string | undefined>(user?.platoon_id)
@@ -1205,6 +1208,15 @@ export default function UnitAdminDashboard() {
                             Edit
                           </button>
                           <button
+                            onClick={() => {
+                              setQrForm(f)
+                              setQrModalOpen(true)
+                            }}
+                            className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
+                          >
+                            QR
+                          </button>
+                          <button
                             onClick={async () => {
                               await deleteForm(unitId, f.id)
                               setForms(await listForms(unitId))
@@ -1349,6 +1361,70 @@ export default function UnitAdminDashboard() {
           </div>
         </div>
       </main>
+
+      {/* QR Code Modal */}
+      {qrModalOpen && qrForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-md bg-black border border-github-border rounded-xl p-6">
+            <h3 className="text-white text-lg mb-4">QR Code for {qrForm.name}</h3>
+            <div className="flex flex-col items-center gap-4">
+              <div className="bg-white p-4 rounded-lg qr-modal-svg">
+                <QRCodeSVG
+                  value={`${window.location.origin}${import.meta.env.BASE_URL}enroll?form=${qrForm.id}&unit=${unitId}&kind=${qrForm.kind}`}
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+              <div className="text-center text-gray-400 text-sm">
+                <p className="mb-2">Scan to start <span className="text-white">{qrForm.kind}</span> process</p>
+                <p className="text-xs break-all">{qrForm.kind} • {qrForm.task_ids.length} tasks</p>
+              </div>
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}${import.meta.env.BASE_URL}enroll?form=${qrForm.id}&unit=${unitId}&kind=${qrForm.kind}`
+                    navigator.clipboard.writeText(url)
+                    alert('Link copied to clipboard!')
+                  }}
+                  className="flex-1 px-4 py-2 bg-github-gray bg-opacity-40 hover:bg-opacity-60 border border-github-border text-white rounded"
+                >
+                  Copy Link
+                </button>
+                <button
+                  onClick={() => {
+                    const svg = document.querySelector('.qr-modal-svg svg')
+                    if (!svg) return
+                    const svgData = new XMLSerializer().serializeToString(svg)
+                    const canvas = document.createElement('canvas')
+                    const ctx = canvas.getContext('2d')
+                    const img = new Image()
+                    img.onload = () => {
+                      canvas.width = img.width
+                      canvas.height = img.height
+                      ctx?.drawImage(img, 0, 0)
+                      const a = document.createElement('a')
+                      a.download = `${qrForm.name.replace(/\s+/g, '_')}_QR.png`
+                      a.href = canvas.toDataURL('image/png')
+                      a.click()
+                    }
+                    img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
+                  }}
+                  className="flex-1 px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                >
+                  Download
+                </button>
+              </div>
+              <button
+                onClick={() => { setQrModalOpen(false); setQrForm(null) }}
+                className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

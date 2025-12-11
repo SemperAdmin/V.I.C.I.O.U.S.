@@ -11,6 +11,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import UnitAdminDashboard from './pages/UnitAdminDashboard'
 import SectionManagerDashboard from './pages/SectionManagerDashboard'
 import TaskManagerDashboard from './pages/TaskManagerDashboard'
+import Enroll from './pages/Enroll'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -30,6 +31,7 @@ function App() {
           <Route path="/history/:owner/:repo/*" element={<HistoryView />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/enroll" element={<Enroll />} />
           <Route path="*" element={<Navigate to="/" replace />} />
           
         </Routes>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { canonicalize } from '@/utils/json'
 import { sha256String } from '@/utils/crypto'
@@ -10,7 +10,9 @@ import { listSections } from '@/utils/unitStructure'
 
 export default function Register() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { login } = useAuthStore()
+  const returnUrl = searchParams.get('return') || '/dashboard'
   const [edipi, setEdipi] = useState('')
   const [firstName, setFirstName] = useState('')
   const [middleInitial, setMiddleInitial] = useState('')
@@ -176,7 +178,7 @@ export default function Register() {
   const handleLoginNow = () => {
     if (!previewUser) return
     login(previewUser)
-    navigate('/dashboard')
+    navigate(returnUrl)
   }
 
   const handleSubmit = async () => {
@@ -262,7 +264,7 @@ export default function Register() {
         })
       }
       login(userProfile)
-      navigate('/dashboard')
+      navigate(returnUrl)
     } catch (e: any) {
       setError(e?.message || 'Submit failed')
     } finally {
