@@ -190,6 +190,8 @@ export default function MyDashboard() {
       arrival_date: kind === 'Inbound' ? (((latest as any)?.arrival_date) || (arrivalDate || new Date().toISOString().slice(0,10))) : undefined,
       departure_date: kind === 'Outbound' ? (((latest as any)?.departure_date) || (departureDate || new Date().toISOString().slice(0,10))) : undefined,
       destination_unit_id: kind === 'Outbound' ? ((latest as any)?.destination_unit_id || '') : undefined,
+      assigned_sponsor_edipi: kind === 'Outbound' ? ((latest as any)?.assigned_sponsor_edipi || '') : undefined,
+      assigned_sponsor_name: kind === 'Outbound' ? ((latest as any)?.assigned_sponsor_name || '') : undefined,
     }
     return preview
   }
@@ -1205,6 +1207,29 @@ export default function MyDashboard() {
                 {submissionPreview.kind === 'Inbound' && (<div><span className="text-gray-400">Arrival:</span> {submissionPreview.arrival_date || ''}</div>)}
                 {submissionPreview.kind === 'Outbound' && (<div><span className="text-gray-400">Departure:</span> {submissionPreview.departure_date || ''}</div>)}
               </div>
+              {submissionPreview.kind === 'Outbound' && (
+                <div className="mt-4 p-3 border border-github-border rounded">
+                  <h4 className="text-white text-sm mb-2">Sponsor</h4>
+                  {submissionPreview.assigned_sponsor_name ? (
+                    <div className="text-sm text-gray-300 space-y-1">
+                      <div><span className="text-gray-400">Name:</span> {submissionPreview.assigned_sponsor_name}</div>
+                      {(() => {
+                        const sponsorProfile = Object.values(memberMap).find(m => m.edipi === submissionPreview.assigned_sponsor_edipi)
+                        return sponsorProfile ? (
+                          <>
+                            {sponsorProfile.email && <div><span className="text-gray-400">Email:</span> <a href={`mailto:${sponsorProfile.email}`} className="text-github-blue hover:underline">{sponsorProfile.email}</a></div>}
+                            {sponsorProfile.phone_number && <div><span className="text-gray-400">Phone:</span> <a href={`tel:${sponsorProfile.phone_number}`} className="text-github-blue hover:underline">{sponsorProfile.phone_number}</a></div>}
+                          </>
+                        ) : (
+                          <div className="text-gray-500 text-xs">Contact info not available</div>
+                        )
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 text-sm">No sponsor assigned yet</div>
+                  )}
+                </div>
+              )}
               <div className="mt-6 space-y-6">
                 <div>
                   <h4 className="text-white text-sm mb-2">Pending</h4>
