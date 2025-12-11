@@ -221,42 +221,9 @@ export default function TaskManagerDashboard() {
         }
         setSubmissionByTaskMember(submissionTracking)
 
-        for (const p of unitMembers) {
-          const prog = await getProgressByMember(p.user_id)
-          for (const t of (prog.progress_tasks || [])) {
-            const subId = t.sub_task_id
-            const isInbound = inboundTaskIds.has(subId)
-            const isOutbound = outboundTaskIds.has(subId)
-            if (t.status === 'Cleared') {
-              if (!allCompletedByTask[subId]) allCompletedByTask[subId] = new Set()
-              allCompletedByTask[subId].add(p.user_id)
-              if (isInbound) {
-                if (!inboundCompletedByTask[subId]) inboundCompletedByTask[subId] = new Set()
-                inboundCompletedByTask[subId].add(p.user_id)
-                if (inboundByTask[subId]) inboundByTask[subId].delete(p.user_id)
-              }
-              if (isOutbound) {
-                if (!outboundCompletedByTask[subId]) outboundCompletedByTask[subId] = new Set()
-                outboundCompletedByTask[subId].add(p.user_id)
-                if (outboundByTask[subId]) outboundByTask[subId].delete(p.user_id)
-              }
-              if (allPendingByTask[subId]) allPendingByTask[subId].delete(p.user_id)
-            }
-            if (t.status === 'Pending') {
-              if (!allPendingByTask[subId]) allPendingByTask[subId] = new Set()
-              allPendingByTask[subId].add(p.user_id)
-              if (isInbound) {
-                if (!inboundByTask[subId]) inboundByTask[subId] = new Set()
-                inboundByTask[subId].add(p.user_id)
-                if (inboundCompletedByTask[subId]) inboundCompletedByTask[subId].delete(p.user_id)
-              }
-              if (isOutbound) {
-                if (!outboundByTask[subId]) outboundByTask[subId] = new Set()
-                outboundByTask[subId].add(p.user_id)
-              }
-            }
-          }
-        }
+        // NOTE: We no longer use global members_progress to override submission-specific task status.
+        // Each submission's tasks array is the source of truth for that submission's pending/completed status.
+        // This ensures that multiple submissions of the same form are truly independent.
       } catch (err) { console.error(err) }
       const inboundGroupsArr = Object.fromEntries(Object.entries(inboundByTask).map(([k, v]) => [k, Array.from(v)]))
       setInboundGroups(inboundGroupsArr)
