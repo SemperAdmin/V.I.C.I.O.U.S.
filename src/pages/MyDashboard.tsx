@@ -990,7 +990,8 @@ export default function MyDashboard() {
                       <p className="text-gray-400 text-sm">No outbound forms</p>
                     )
                   )}
-                </div>)}
+                </div>
+                )}
                 {outboundView === 'Completed' && (
                 <div>
                   {mySubmissions.filter(s => s.kind === 'Outbound').length ? (
