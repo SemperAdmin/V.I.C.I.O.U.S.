@@ -763,7 +763,10 @@ export default function UnitAdminDashboard() {
                     setSectionOptions(secs)
                     const defaultSectionId = secs[0]?.id || 0
                     setNewTask({ section_id: defaultSectionId, sub_task_id: '', description: '', responsible_user_ids: defaultEdipis.join(', '), location: '', map_url: '', instructions: '' })
-                    setSectionInstructions('')
+                    // Load stored section instructions for default section
+                    const key = defaultSectionId ? `section_instructions:${unitId}:${defaultSectionId}` : ''
+                    const storedInstructions = key ? localStorage.getItem(key) : null
+                    setSectionInstructions(storedInstructions || '')
                     setTaskEditCompletionKind('')
                     setTaskEditCompletionLabel('')
                     setTaskEditCompletionOptions('')
@@ -787,6 +790,10 @@ export default function UnitAdminDashboard() {
                           onChange={e => {
                             const section_id = Number(e.target.value)
                             setNewTask({ ...newTask, section_id })
+                            // Load stored section instructions for selected section
+                            const key = section_id ? `section_instructions:${unitId}:${section_id}` : ''
+                            const storedInstructions = key ? localStorage.getItem(key) : null
+                            setSectionInstructions(storedInstructions || '')
                           }}
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         >
