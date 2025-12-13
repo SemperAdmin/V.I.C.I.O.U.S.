@@ -177,7 +177,7 @@ export default function Enroll() {
       <div className="w-full max-w-md bg-black border border-github-border rounded-xl p-6">
         <div className="flex items-center gap-3 mb-6">
           <BrandMark />
-          <h1 className="text-white text-xl font-semibold">Process Point</h1>
+          <h1 className="text-white text-xl font-semibold">V.I.C.I.O.U.S.</h1>
         </div>
 
         <div className="border border-github-border rounded-lg p-4 mb-6">

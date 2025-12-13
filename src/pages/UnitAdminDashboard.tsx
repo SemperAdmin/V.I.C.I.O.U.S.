@@ -1475,7 +1475,7 @@ export default function UnitAdminDashboard() {
                   level="H"
                   includeMargin={true}
                 />
-                <div className="text-black text-xs text-center mt-2">Process Point by Semper Admin</div>
+                <div className="text-black text-xs text-center mt-2">V.I.C.I.O.U.S. by Semper Admin</div>
               </div>
               <div className="text-center text-gray-400 text-sm">
                 <p className="mb-2">Scan to start <span className="text-white">{qrForm.kind}</span> process</p>
@@ -1519,7 +1519,7 @@ export default function UnitAdminDashboard() {
                         ctx.drawImage(img, padding, padding + topTextHeight)
                         // Branding at bottom
                         ctx.font = '11px Inter, sans-serif'
-                        ctx.fillText('Process Point by Semper Admin', canvas.width / 2, canvas.height - padding)
+                        ctx.fillText('V.I.C.I.O.U.S. by Semper Admin', canvas.width / 2, canvas.height - padding)
                       }
                       const a = document.createElement('a')
                       a.download = `${qrForm.name.replace(/\s+/g, '_')}_QR.png`

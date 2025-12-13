@@ -22,7 +22,7 @@ export default function BrandMark() {
         onError={() => setIdx(i => (i + 1 < candidates.length ? i + 1 : i))}
       />
       <div className="flex flex-col leading-tight min-w-0">
-        <span className="font-heading uppercase tracking-wider text-semper-cream text-sm sm:text-xl truncate">Process Point</span>
+        <span className="font-heading uppercase tracking-wider text-semper-cream text-sm sm:text-xl truncate">V.I.C.I.O.U.S.</span>
         <span className="text-xs text-semper-gold tracking-wide hidden sm:block">by Semper Admin</span>
       </div>
     </div>
