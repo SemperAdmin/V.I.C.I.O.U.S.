@@ -1279,21 +1279,24 @@ export default function MyDashboard() {
                     </select>
                   </div>
                 )}
-                {newKind === 'Inbound' && selectedUnit && selectedCompany && availableSections.filter(s => s.company_id === selectedCompany).length > 0 && (
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Section</label>
-                    <select
-                      value={selectedSection}
-                      onChange={e => setSelectedSection(e.target.value)}
-                      className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
-                    >
-                      <option value="">Select section</option>
-                      {availableSections.filter(s => s.company_id === selectedCompany).map(s => (
-                        <option key={s.id} value={s.section_name}>{s.display_name || s.section_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                {newKind === 'Inbound' && selectedUnit && selectedCompany && (() => {
+                  const sectionsForCompany = availableSections.filter(s => s.company_id === selectedCompany);
+                  return sectionsForCompany.length > 0 ? (
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">Section</label>
+                      <select
+                        value={selectedSection}
+                        onChange={e => setSelectedSection(e.target.value)}
+                        className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                      >
+                        <option value="">Select section</option>
+                        {sectionsForCompany.map(s => (
+                          <option key={s.id} value={s.section_name}>{s.display_name || s.section_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null;
+                })()}
                 {newKind === 'Inbound' && (
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">Arrival Date (when you arrived at this unit)</label>
@@ -1385,13 +1388,14 @@ export default function MyDashboard() {
                     }
 
                     setMySubmissions(await listSubmissions(user.user_id))
-                  } catch (err) { console.error(err) }
-                  setCreateOpen(false)
-                  setNewKind('Inbound')
-                  const first = forms.filter(f => f.kind === 'Inbound')[0]
-                  setSelectedFormId(first ? first.id : null)
-                  setSelectedCompany('')
-                  setSelectedSection('')
+                    setCreateOpen(false)
+                    setNewKind('Inbound')
+                    const first = forms.filter(f => f.kind === 'Inbound')[0]
+                    setSelectedFormId(first ? first.id : null)
+                    setSelectedUnit('')
+                    setSelectedCompany('')
+                    setSelectedSection('')
+                  } catch (err) { console.error('Failed to create submission or update profile:', err) }
                 }} className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded">Save</button>
                 <button onClick={() => { setCreateOpen(false); setSelectedCompany(''); setSelectedSection('') }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">Cancel</button>
               </div>
