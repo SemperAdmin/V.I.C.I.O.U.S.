@@ -828,9 +828,10 @@ export default function MyDashboard() {
                 <div>
                   {(mySubmissions.filter(s => s.kind === 'Outbound').length) ? (
                     <div className="mt-4">
-                      <div className="grid grid-cols-5 text-gray-400 text-sm mb-2">
+                      <div className="grid grid-cols-6 text-gray-400 text-sm mb-2">
                         <div className="text-left p-2">Form</div>
                         <div className="text-left p-2">Unit</div>
+                        <div className="text-left p-2">Destination</div>
                         <div className="text-left p-2">Departure</div>
                         <div className="text-left p-2">Done/Total</div>
                         <div className="text-left p-2">Action</div>
@@ -844,10 +845,13 @@ export default function MyDashboard() {
                             const done = typeof (s as any)?.completed_count === 'number' ? Number((s as any).completed_count) : 0
                             return total > 0 && done < total
                           })
-                          return rows.length ? rows.map(s => (
-                            <div key={`sub-${s.id}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors">
+                          return rows.length ? rows.map(s => {
+                            const destUnit = unitOptions.find(u => u.id === s.destination_unit_id)
+                            return (
+                            <div key={`sub-${s.id}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors">
                               <div className="p-2">{s.form_name}</div>
                               <div className="p-2">{s.unit_id}</div>
+                              <div className="p-2">{destUnit?.name || s.destination_unit_id || 'N/A'}</div>
                               <div className="p-2">{s.departure_date || (departureDate || new Date().toISOString().slice(0,10))}</div>
                               <div className="p-2">{(() => {
                                 const ids = Array.isArray((s as any)?.task_ids) ? (((s as any).task_ids || []) as string[]) : ((((s as any)?.tasks || []) as any[]).map((t: any) => t.sub_task_id))
@@ -916,34 +920,32 @@ export default function MyDashboard() {
                                 </button>
                               </div>
                             </div>
-                          )) : (<div className="text-gray-400 text-sm">None</div>)
+                          )}) : (<div className="text-gray-400 text-sm">None</div>)
                         })()}
                       </div>
                     </div>
                   ) : (
                     outboundFormsPendingSummary.length ? (
                       <div className="mt-4">
-                        <div className="grid grid-cols-5 text-gray-400 text-sm mb-2">
+                        <div className="grid grid-cols-6 text-gray-400 text-sm mb-2">
                           <div className="text-left p-2">Form</div>
                           <div className="text-left p-2">Unit</div>
+                          <div className="text-left p-2">Destination</div>
                           <div className="text-left p-2">Departure</div>
                           <div className="text-left p-2">Done/Total</div>
                           <div className="text-left p-2">Action</div>
                         </div>
                         <div className="text-sm">
-                          {outboundFormsPendingSummary.filter(r => r.completed < r.total).map((r, i) => (
-                            <div key={`ob-sum-${i}`} className="grid grid-cols-5 items-center border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors">
+                          {outboundFormsPendingSummary.filter(r => r.completed < r.total).map((r, i) => {
+                            const fid = forms.find(f => f.name === r.formName && f.kind === 'Outbound')?.id || 0
+                            const latest = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound').sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
+                            const destUnit = unitOptions.find(u => u.id === latest?.destination_unit_id)
+                            return (
+                            <div key={`ob-sum-${i}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors">
                               <div className="p-2">{r.formName}</div>
-                              <div className="p-2">{(() => {
-                                const fid = forms.find(f => f.name === r.formName && f.kind === 'Outbound')?.id || 0
-                                const latest = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound').sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
-                                return latest?.unit_id || (user?.unit_id || '')
-                              })()}</div>
-                              <div className="p-2">{(() => {
-                                const fid = forms.find(f => f.name === r.formName && f.kind === 'Outbound')?.id || 0
-                                const latest = mySubmissions.filter(s => s.form_id === fid && s.kind === 'Outbound').sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0]
-                                return latest?.departure_date || (departureDate || new Date().toISOString().slice(0,10))
-                              })()}</div>
+                              <div className="p-2">{latest?.unit_id || (user?.unit_id || '')}</div>
+                              <div className="p-2">{destUnit?.name || latest?.destination_unit_id || 'N/A'}</div>
+                              <div className="p-2">{latest?.departure_date || (departureDate || new Date().toISOString().slice(0,10))}</div>
                               <div className="p-2">{`${r.completed}/${r.total}`}</div>
                               <div className="p-2">
                                 <button
@@ -981,7 +983,7 @@ export default function MyDashboard() {
                                 </button>
                               </div>
                             </div>
-                          ))}
+                          )})}
                         </div>
                       </div>
                     ) : (
@@ -996,8 +998,8 @@ export default function MyDashboard() {
                       <div className="grid grid-cols-6 text-gray-400 text-sm mb-2">
                         <div className="text-left p-2">Form</div>
                         <div className="text-left p-2">Unit</div>
-                        <div className="text-left p-2">EDIPI</div>
-                        <div className="text-left p-2">Created</div>
+                        <div className="text-left p-2">Destination</div>
+                        <div className="text-left p-2">Departure</div>
                         <div className="text-left p-2">Completed</div>
                         <div className="text-left p-2">Action</div>
                       </div>
@@ -1010,12 +1012,14 @@ export default function MyDashboard() {
                             return total > 0 && done === total
                           })
                           if (!completedRows.length) return (<div className="text-gray-400 text-sm">None</div>)
-                          return completedRows.map(i => (
+                          return completedRows.map(i => {
+                            const destUnit = unitOptions.find(u => u.id === i.destination_unit_id)
+                            return (
                             <div key={`out-${i.id}`} className="grid grid-cols-6 items-center border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors">
                               <div className="p-2">{i.form_name}</div>
-                              <div className="p-2">{user?.unit_id || ''}</div>
-                              <div className="p-2">{user?.edipi || ''}</div>
-                              <div className="p-2">{new Date(i.created_at).toLocaleDateString()}</div>
+                              <div className="p-2">{i.unit_id || ''}</div>
+                              <div className="p-2">{destUnit?.name || i.destination_unit_id || 'N/A'}</div>
+                              <div className="p-2">{i.departure_date || ''}</div>
                               <div className="p-2">{new Date(((i as any)?.completed_at || i.created_at)).toLocaleDateString()}</div>
                               <div className="p-2">
                                 <button
@@ -1077,7 +1081,7 @@ export default function MyDashboard() {
                                 </button>
                               </div>
                             </div>
-                          ))
+                          )})
                         })()}
                       </div>
                     </div>
