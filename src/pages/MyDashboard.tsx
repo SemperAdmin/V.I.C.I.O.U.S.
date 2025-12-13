@@ -1373,18 +1373,30 @@ export default function MyDashboard() {
                   try {
                     await createSubmission(submission)
 
-                    // Update user's company and section in profile for Inbound forms
-                    if (newKind === 'Inbound' && (selectedCompany || selectedSection || selectedUnit)) {
+                    // Update user's profile for Inbound forms (unit, company, section)
+                    if (newKind === 'Inbound') {
                       const profileUpdate: Partial<LocalUserProfile> = {}
-                      if (selectedCompany) profileUpdate.company_id = selectedCompany
-                      if (selectedSection) profileUpdate.platoon_id = selectedSection
-                      if (selectedUnit) profileUpdate.unit_id = selectedUnit
+                      // Always update unit_id for Inbound forms
+                      const newUnitId = selectedUnit || user.unit_id
+                      if (newUnitId !== user.unit_id) {
+                        profileUpdate.unit_id = newUnitId
+                      }
+                      if (selectedCompany && selectedCompany !== user.company_id) {
+                        profileUpdate.company_id = selectedCompany
+                      }
+                      if (selectedSection && selectedSection !== user.platoon_id) {
+                        profileUpdate.platoon_id = selectedSection
+                      }
 
-                      await sbUpdateUser(user.user_id, profileUpdate)
+                      if (Object.keys(profileUpdate).length > 0) {
+                        console.log('Updating user profile:', profileUpdate)
+                        await sbUpdateUser(user.user_id, profileUpdate)
 
-                      // Update local state
-                      const updatedUser = { ...user, ...profileUpdate } as typeof user
-                      login(updatedUser)
+                        // Update local state
+                        const updatedUser = { ...user, ...profileUpdate } as typeof user
+                        login(updatedUser)
+                        console.log('Profile updated successfully')
+                      }
                     }
 
                     setMySubmissions(await listSubmissions(user.user_id))
