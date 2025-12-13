@@ -31,7 +31,7 @@ jobs:
           VITE_GITHUB_CLIENT_ID: ${{ secrets.VITE_GITHUB_CLIENT_ID }}
           VITE_GITHUB_CLIENT_SECRET: ${{ secrets.VITE_GITHUB_CLIENT_SECRET }}
           VITE_APP_NAME: "V.I.C.I.O.U.S."
-          VITE_APP_URL: "https://semperadmin.github.io/Process-Point"
+          VITE_APP_URL: "https://semperadmin.github.io/V.I.C.I.O.U.S."
           VITE_GH_DATA_TOKEN: ${{ secrets.VITE_GH_DATA_TOKEN }}
         run: npm run build
       - name: Upload artifact
