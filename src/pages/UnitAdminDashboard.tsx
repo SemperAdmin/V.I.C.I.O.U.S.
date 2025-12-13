@@ -24,7 +24,8 @@ export default function UnitAdminDashboard() {
   const [tasks, setTasks] = useState<any[]>([])
   const [forms, setForms] = useState<UnitForm[]>([])
   const [newSectionName, setNewSectionName] = useState('')
-  const [newTask, setNewTask] = useState({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', instructions: '' })
+  const [newTask, setNewTask] = useState({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', map_url: '', instructions: '' })
+  const [sectionInstructions, setSectionInstructions] = useState('')
   const [adminRucs, setAdminRucs] = useState<Array<{ ruc: string }>>([])
   const getInitialRuc = () => {
     const stored = localStorage.getItem('selectedAdminRuc')
@@ -761,7 +762,12 @@ export default function UnitAdminDashboard() {
                     setSections(secs)
                     setSectionOptions(secs)
                     const defaultSectionId = secs[0]?.id || 0
-                    setNewTask({ section_id: defaultSectionId, sub_task_id: '', description: '', responsible_user_ids: defaultEdipis.join(', '), location: '', instructions: '' })
+                    setNewTask({ section_id: defaultSectionId, sub_task_id: '', description: '', responsible_user_ids: defaultEdipis.join(', '), location: '', map_url: '', instructions: '' })
+                    setSectionInstructions('')
+                    setTaskEditCompletionKind('')
+                    setTaskEditCompletionLabel('')
+                    setTaskEditCompletionOptions('')
+                    setTaskEditLinkUrl('')
                     setCreateModalOpen(true)
                   }}
                   className="px-3 sm:px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded text-sm"
@@ -796,16 +802,31 @@ export default function UnitAdminDashboard() {
                           rows={4}
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         />
-                        <input
-                          value={newTask.location}
-                          onChange={e => setNewTask({ ...newTask, location: e.target.value })}
-                          placeholder="Location"
-                          className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
-                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            value={newTask.location}
+                            onChange={e => setNewTask({ ...newTask, location: e.target.value })}
+                            placeholder="Location"
+                            className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                          />
+                          <input
+                            value={newTask.map_url}
+                            onChange={e => setNewTask({ ...newTask, map_url: e.target.value })}
+                            placeholder="Map URL"
+                            className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                          />
+                        </div>
                         <textarea
                           value={newTask.instructions}
                           onChange={e => setNewTask({ ...newTask, instructions: e.target.value })}
                           placeholder="Special instructions"
+                          rows={4}
+                          className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                        />
+                        <textarea
+                          value={sectionInstructions}
+                          onChange={e => setSectionInstructions(e.target.value)}
+                          placeholder="Section instructions"
                           rows={4}
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         />
@@ -859,15 +880,22 @@ export default function UnitAdminDashboard() {
                               description: sub_task_id,
                               responsible_user_ids: ids,
                               location: newTask.location.trim() || undefined,
+                              map_url: newTask.map_url.trim() || undefined,
                               instructions: newTask.instructions.trim() || undefined,
                               completion_kind: taskEditCompletionKind || undefined,
                               completion_label: taskEditCompletionLabel.trim() || undefined,
                               completion_options: taskEditCompletionKind === 'Options' ? taskEditCompletionOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined,
                               link_url: taskEditCompletionKind === 'Link' ? taskEditLinkUrl.trim() || undefined : undefined,
                             })
+                            // Store section instructions in localStorage
+                            try {
+                              const key = newTask.section_id ? `section_instructions:${unitId}:${newTask.section_id}` : ''
+                              if (key && sectionInstructions.trim()) localStorage.setItem(key, sectionInstructions.trim())
+                            } catch (err) { console.error(err) }
                             setTasks(await listSubTasks(unitId))
                             setCreateModalOpen(false)
-                            setNewTask({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', instructions: '' })
+                            setNewTask({ section_id: 0, sub_task_id: '', description: '', responsible_user_ids: '', location: '', map_url: '', instructions: '' })
+                            setSectionInstructions('')
                             setTaskEditCompletionKind('')
                             setTaskEditCompletionLabel('')
                             setTaskEditCompletionOptions('')
