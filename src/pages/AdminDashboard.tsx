@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
-import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbPromoteUserToUnitAdmin } from '@/services/adminService'
+import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbPromoteUserToUnitAdmin, sbListSponsorshipCoordinators, type SponsorshipCoordinator } from '@/services/adminService'
 import { sbGetUserByEdipi, sbListUsers } from '@/services/supabaseDataService'
 import HeaderTools from '@/components/HeaderTools'
 import BrandMark from '@/components/BrandMark'
@@ -21,6 +21,10 @@ export default function AdminDashboard() {
   const [editingUnit, setEditingUnit] = useState<string | null>(null)
   const [addingUnit, setAddingUnit] = useState<string | null>(null)
   const [sectionDisplayMap, setSectionDisplayMap] = useState<Record<string, string>>({})
+  const [expandedUser, setExpandedUser] = useState<string | null>(null)
+  const [sponsorshipCoordinators, setSponsorshipCoordinators] = useState<SponsorshipCoordinator[]>([])
+  const [unitSearchQuery, setUnitSearchQuery] = useState('')
+  const [assigningUnitAdmin, setAssigningUnitAdmin] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -44,6 +48,9 @@ export default function AdminDashboard() {
         setUnits(Array.from(unique.values()))
         const a = await sbListUnitAdmins()
         setAdmins(a)
+        // Load sponsorship coordinators
+        const coords = await sbListSponsorshipCoordinators()
+        setSponsorshipCoordinators(coords)
         // Load all users
         const users = await sbListUsers()
         setAllUsers(users)
@@ -111,6 +118,57 @@ export default function AdminDashboard() {
     const p = adminProfiles[edipi]
     if (!p) return ''
     return [p.first_name, p.last_name].filter(Boolean).join(' ')
+  }
+
+  // Get all units a user is admin of
+  const getUserAdminUnits = (edipi: string) => {
+    return admins.filter(a => a.admin_user_id === edipi)
+  }
+
+  // Check if user is a sponsorship coordinator and get their RUCs
+  const getUserSponsorshipCoordinatorRucs = (edipi: string) => {
+    return sponsorshipCoordinators.filter(c => c.coordinator_edipi === edipi).map(c => c.ruc)
+  }
+
+  // Filter units for the searchable dropdown
+  const filteredUnitsForDropdown = units.filter(u => {
+    const q = unitSearchQuery.trim().toLowerCase()
+    if (!q) return true
+    return (
+      (u.unit_name || '').toLowerCase().includes(q) ||
+      (u.unit_key || '').toLowerCase().includes(q) ||
+      (u.uic || '').toLowerCase().includes(q) ||
+      (u.ruc || '').toLowerCase().includes(q)
+    )
+  })
+
+  // Handle assigning user as Unit Admin
+  const handleAssignUnitAdmin = async (userEdipi: string, unit: any) => {
+    setAssigningUnitAdmin(true)
+    try {
+      await sbUpsertUnitAdmin(unit.unit_key, unit.unit_name, userEdipi, unit.ruc)
+      await sbPromoteUserToUnitAdmin(userEdipi, unit.unit_key)
+      const next = await sbListUnitAdmins()
+      setAdmins(next)
+      setUnitSearchQuery('')
+    } catch (error) {
+      console.error('Failed to assign unit admin:', error)
+      alert('Failed to assign unit admin. Please try again.')
+    } finally {
+      setAssigningUnitAdmin(false)
+    }
+  }
+
+  // Handle removing user as Unit Admin from a specific unit
+  const handleRemoveUnitAdmin = async (userEdipi: string, unitKey: string) => {
+    try {
+      await sbRemoveUnitAdmin(unitKey, userEdipi)
+      const next = await sbListUnitAdmins()
+      setAdmins(next)
+    } catch (error) {
+      console.error('Failed to remove unit admin:', error)
+      alert('Failed to remove unit admin. Please try again.')
+    }
   }
 
   if (!user || !(user.edipi === '1402008233' || normalizeOrgRole(user.org_role) === 'App_Admin')) {
@@ -282,19 +340,140 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map(u => (
-                      <tr key={u.user_id || u.edipi} className="border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors">
-                        <td className="p-2">{u.edipi || ''}</td>
-                        <td className="p-2">{[u.first_name, u.middle_initial, u.last_name].filter(Boolean).join(' ')}</td>
-                        <td className="p-2">{u.rank || ''}</td>
-                        <td className="p-2">{u.branch || ''}</td>
-                        <td className="p-2">{u.mos || ''}</td>
-                        <td className="p-2">{u.unit_id || ''}</td>
-                        <td className="p-2">{u.company_id || ''}</td>
-                        <td className="p-2">{sectionDisplayMap[String(u.platoon_id)] || u.platoon_id || ''}</td>
-                        <td className="p-2">{u.org_role || ''}</td>
-                      </tr>
-                    ))}
+                    {filteredUsers.map(u => {
+                      const isExpanded = expandedUser === u.edipi
+                      const userAdminUnits = getUserAdminUnits(u.edipi)
+                      const coordinatorRucs = getUserSponsorshipCoordinatorRucs(u.edipi)
+                      const hasCoordinatorPermission = coordinatorRucs.length > 0
+
+                      return (
+                        <React.Fragment key={u.user_id || u.edipi}>
+                          <tr
+                            onClick={() => {
+                              setExpandedUser(isExpanded ? null : u.edipi)
+                              setUnitSearchQuery('')
+                            }}
+                            className={`border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors cursor-pointer ${isExpanded ? 'bg-[#AD1B3F] bg-opacity-40' : ''}`}
+                          >
+                            <td className="p-2">
+                              <span className="inline-flex items-center gap-2">
+                                <span className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                                {u.edipi || ''}
+                              </span>
+                            </td>
+                            <td className="p-2">{[u.first_name, u.middle_initial, u.last_name].filter(Boolean).join(' ')}</td>
+                            <td className="p-2">{u.rank || ''}</td>
+                            <td className="p-2">{u.branch || ''}</td>
+                            <td className="p-2">{u.mos || ''}</td>
+                            <td className="p-2">{u.unit_id || ''}</td>
+                            <td className="p-2">{u.company_id || ''}</td>
+                            <td className="p-2">{sectionDisplayMap[String(u.platoon_id)] || u.platoon_id || ''}</td>
+                            <td className="p-2">{u.org_role || ''}</td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${u.edipi}-details`} className="bg-github-gray bg-opacity-10">
+                              <td colSpan={9} className="p-4">
+                                <div className="space-y-4">
+                                  {/* Unit Admin Section */}
+                                  <div className="border border-github-border rounded-lg p-4">
+                                    <h4 className="text-white font-medium mb-3">Unit Admin Permissions</h4>
+                                    {userAdminUnits.length > 0 ? (
+                                      <div className="mb-4">
+                                        <p className="text-gray-400 text-sm mb-2">Currently assigned as Unit Admin for:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {userAdminUnits.map(admin => (
+                                            <span
+                                              key={admin.unit_key}
+                                              className="inline-flex items-center gap-2 px-3 py-1 bg-github-blue bg-opacity-20 border border-github-blue rounded-lg text-white"
+                                            >
+                                              {admin.unit_name || admin.unit_key}
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleRemoveUnitAdmin(u.edipi, admin.unit_key)
+                                                }}
+                                                className="ml-1 px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
+                                              >
+                                                Remove
+                                              </button>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-gray-500 text-sm mb-4">Not assigned as Unit Admin for any units</p>
+                                    )}
+
+                                    {/* Assign Unit Admin Dropdown */}
+                                    <div className="mt-3">
+                                      <p className="text-gray-400 text-sm mb-2">Assign as Unit Admin:</p>
+                                      <div className="relative">
+                                        <input
+                                          type="text"
+                                          value={unitSearchQuery}
+                                          onChange={(e) => {
+                                            e.stopPropagation()
+                                            setUnitSearchQuery(e.target.value)
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                          placeholder="Search units by name, UIC, or RUC..."
+                                          className="w-full max-w-md px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
+                                          disabled={assigningUnitAdmin}
+                                        />
+                                        {unitSearchQuery && (
+                                          <div
+                                            className="absolute z-10 w-full max-w-md mt-1 max-h-48 overflow-y-auto bg-github-gray border border-github-border rounded-lg shadow-lg"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            {filteredUnitsForDropdown.length > 0 ? (
+                                              filteredUnitsForDropdown.slice(0, 10).map(unit => (
+                                                <button
+                                                  key={unit.unit_key}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleAssignUnitAdmin(u.edipi, unit)
+                                                  }}
+                                                  className="w-full px-4 py-2 text-left text-white hover:bg-github-blue hover:bg-opacity-30 border-b border-github-border last:border-b-0"
+                                                  disabled={assigningUnitAdmin}
+                                                >
+                                                  <div className="font-medium">{unit.unit_name}</div>
+                                                  <div className="text-xs text-gray-400">{unit.unit_key}</div>
+                                                </button>
+                                              ))
+                                            ) : (
+                                              <div className="px-4 py-2 text-gray-400">No matching units found</div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Sponsorship Coordinator Section */}
+                                  <div className="border border-github-border rounded-lg p-4">
+                                    <h4 className="text-white font-medium mb-3">Sponsorship Coordinator Permission</h4>
+                                    {hasCoordinatorPermission ? (
+                                      <div>
+                                        <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-600 bg-opacity-20 border border-green-600 rounded-lg text-green-400">
+                                          <span>✓</span> Enabled
+                                        </span>
+                                        <p className="text-gray-400 text-sm mt-2">
+                                          Coordinator for RUC(s): {coordinatorRucs.join(', ')}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-gray-600 bg-opacity-20 border border-gray-600 rounded-lg text-gray-400">
+                                        <span>✗</span> Not Enabled
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
