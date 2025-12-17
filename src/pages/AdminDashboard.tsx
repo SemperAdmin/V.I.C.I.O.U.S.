@@ -34,6 +34,11 @@ export default function AdminDashboard() {
   const [sponsorshipCoordinators, setSponsorshipCoordinators] = useState<SponsorshipCoordinator[]>([])
   const [unitSearchQuery, setUnitSearchQuery] = useState('')
   const [assigningUnitAdmin, setAssigningUnitAdmin] = useState(false)
+  // Pagination state
+  const [unitsPage, setUnitsPage] = useState(1)
+  const [unitsPageSize, setUnitsPageSize] = useState(10)
+  const [usersPage, setUsersPage] = useState(1)
+  const [usersPageSize, setUsersPageSize] = useState(10)
 
   useEffect(() => {
     const load = async () => {
@@ -164,6 +169,88 @@ export default function AdminDashboard() {
     ))
   }, [units, unitSearchQuery])
 
+  // Paginated units
+  const paginatedUnits = useMemo(() => {
+    const start = (unitsPage - 1) * unitsPageSize
+    return filtered.slice(start, start + unitsPageSize)
+  }, [filtered, unitsPage, unitsPageSize])
+
+  const totalUnitsPages = Math.ceil(filtered.length / unitsPageSize)
+
+  // Paginated users
+  const paginatedUsers = useMemo(() => {
+    const start = (usersPage - 1) * usersPageSize
+    return filteredUsers.slice(start, start + usersPageSize)
+  }, [filteredUsers, usersPage, usersPageSize])
+
+  const totalUsersPages = Math.ceil(filteredUsers.length / usersPageSize)
+
+  // Format date helper
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return '-'
+    try {
+      return new Date(dateString).toLocaleDateString()
+    } catch {
+      return '-'
+    }
+  }
+
+  // Pagination controls component
+  const PaginationControls = ({
+    currentPage,
+    totalPages,
+    pageSize,
+    totalItems,
+    onPageChange,
+    onPageSizeChange
+  }: {
+    currentPage: number
+    totalPages: number
+    pageSize: number
+    totalItems: number
+    onPageChange: (page: number) => void
+    onPageSizeChange: (size: number) => void
+  }) => (
+    <div className="flex items-center justify-between mt-4 text-sm">
+      <div className="flex items-center gap-2 text-gray-400">
+        <span>Show</span>
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            onPageSizeChange(Number(e.target.value))
+            onPageChange(1)
+          }}
+          className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+        >
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+        <span>of {totalItems}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+          className="px-3 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-40"
+        >
+          Previous
+        </button>
+        <span className="text-gray-400">
+          Page {currentPage} of {totalPages || 1}
+        </span>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          className="px-3 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  )
+
   // Handle assigning user as Unit Admin
   const handleAssignUnitAdmin = async (userEdipi: string, unit: Unit) => {
     setAssigningUnitAdmin(true)
@@ -239,6 +326,7 @@ export default function AdminDashboard() {
                   onChange={e => setQuery(e.target.value)}
                 />
               </div>
+              <div className="text-gray-400 text-sm mb-2">{filtered.length} units</div>
               <div className="overflow-auto">
                 <table className="min-w-full text-sm">
                   <thead className="text-gray-400">
@@ -252,7 +340,7 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(u => {
+                    {paginatedUnits.map(u => {
                       const uk = u.unit_key
                       const adminsForUnit = admins.filter(a => a.unit_key === uk)
                       const adminChips = adminsForUnit.map(a => {
@@ -334,6 +422,14 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+              <PaginationControls
+                currentPage={unitsPage}
+                totalPages={totalUnitsPages}
+                pageSize={unitsPageSize}
+                totalItems={filtered.length}
+                onPageChange={setUnitsPage}
+                onPageSizeChange={setUnitsPageSize}
+              />
             </>
           ) : (
             <>
@@ -358,12 +454,13 @@ export default function AdminDashboard() {
                       <th className="text-left p-2">Unit</th>
                       <th className="text-left p-2">Unit Admin</th>
                       <th className="text-left p-2">Sponsorship Coordinator</th>
+                      <th className="text-left p-2">Date Created</th>
                       <th className="text-left p-2">Role</th>
                       <th className="text-left p-2"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map(u => {
+                    {paginatedUsers.map(u => {
                       const userAdminUnits = userAdminUnitsMap[u.edipi] || []
                       const coordinatorRucs = userCoordinatorRucsMap[u.edipi] || []
                       const hasUnitAdmin = userAdminUnits.length > 0
@@ -394,6 +491,7 @@ export default function AdminDashboard() {
                               <span className="text-gray-500">No</span>
                             )}
                           </td>
+                          <td className="p-2">{formatDate(u.created_at_timestamp)}</td>
                           <td className="p-2">{u.org_role || ''}</td>
                           <td className="p-2">
                             <button
@@ -412,6 +510,14 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+              <PaginationControls
+                currentPage={usersPage}
+                totalPages={totalUsersPages}
+                pageSize={usersPageSize}
+                totalItems={filteredUsers.length}
+                onPageChange={setUsersPage}
+                onPageSizeChange={setUsersPageSize}
+              />
 
               {/* Edit User Modal */}
               {editingUserEdipi && (() => {
@@ -421,8 +527,8 @@ export default function AdminDashboard() {
                 const coordinatorRucs = userCoordinatorRucsMap[editingUserEdipi] || []
 
                 return (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-github-gray border border-github-border rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                  <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+                    <div className="bg-github-dark border border-github-border rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                       <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-semibold text-white">Edit User Permissions</h3>
                         <button
@@ -437,7 +543,7 @@ export default function AdminDashboard() {
                       </div>
 
                       {/* User Info Display */}
-                      <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-github-dark rounded-lg border border-github-border">
+                      <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-github-gray bg-opacity-20 rounded-lg border border-github-border">
                         <div>
                           <p className="text-gray-400 text-sm">EDIPI</p>
                           <p className="text-white">{editingUser.edipi}</p>
@@ -465,7 +571,7 @@ export default function AdminDashboard() {
                       </div>
 
                       {/* Unit Admin Assignment */}
-                      <div className="mb-6 p-4 border border-github-border rounded-lg">
+                      <div className="mb-6 p-4 bg-github-gray bg-opacity-10 border border-github-border rounded-lg">
                         <h4 className="text-white font-medium mb-3">Unit Admin Permissions</h4>
                         {userAdminUnits.length > 0 ? (
                           <div className="mb-4">
@@ -500,11 +606,11 @@ export default function AdminDashboard() {
                               value={unitSearchQuery}
                               onChange={(e) => setUnitSearchQuery(e.target.value)}
                               placeholder="Search units by name, UIC, or RUC..."
-                              className="w-full px-4 py-2 bg-github-dark border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
+                              className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
                               disabled={assigningUnitAdmin}
                             />
                             {unitSearchQuery && (
-                              <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-github-dark border border-github-border rounded-lg shadow-lg">
+                              <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-github-gray border border-github-border rounded-lg shadow-lg">
                                 {filteredUnitsForDropdown.length > 0 ? (
                                   filteredUnitsForDropdown.slice(0, 10).map(unit => (
                                     <button
@@ -527,7 +633,7 @@ export default function AdminDashboard() {
                       </div>
 
                       {/* Sponsorship Coordinator (View Only) */}
-                      <div className="mb-6 p-4 border border-github-border rounded-lg">
+                      <div className="mb-6 p-4 bg-github-gray bg-opacity-10 border border-github-border rounded-lg">
                         <h4 className="text-white font-medium mb-3">Sponsorship Coordinator Permission</h4>
                         {coordinatorRucs.length > 0 ? (
                           <div>
