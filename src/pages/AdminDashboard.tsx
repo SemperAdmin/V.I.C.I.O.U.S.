@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbPromoteUserToUnitAdmin, sbListSponsorshipCoordinators, type SponsorshipCoordinator } from '@/services/adminService'
 import { sbGetUserByEdipi, sbListUsers } from '@/services/supabaseDataService'
@@ -7,11 +7,20 @@ import BrandMark from '@/components/BrandMark'
 import { normalizeOrgRole } from '@/utils/roles'
 import { listSections } from '@/utils/unitStructure'
 
+// Type for unit objects used in the dashboard
+type Unit = {
+  unit_key: string
+  unit_name: string
+  uic: string
+  ruc: string
+  mcc: string
+}
+
 export default function AdminDashboard() {
   const { user } = useAuthStore()
   const [query, setQuery] = useState('')
   const [userQuery, setUserQuery] = useState('')
-  const [units, setUnits] = useState<any[]>([])
+  const [units, setUnits] = useState<Unit[]>([])
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [admins, setAdmins] = useState<Array<{ unit_key: string; unit_name: string; admin_user_id: string; ruc?: string }>>([])
   const [assignEdipi, setAssignEdipi] = useState<Record<string, string>>({})
@@ -120,30 +129,43 @@ export default function AdminDashboard() {
     return [p.first_name, p.last_name].filter(Boolean).join(' ')
   }
 
-  // Get all units a user is admin of
-  const getUserAdminUnits = (edipi: string) => {
-    return admins.filter(a => a.admin_user_id === edipi)
-  }
+  // Pre-compute maps for efficient lookup in render loop
+  const userAdminUnitsMap = useMemo(() => {
+    const map: Record<string, typeof admins> = {}
+    for (const admin of admins) {
+      if (!map[admin.admin_user_id]) {
+        map[admin.admin_user_id] = []
+      }
+      map[admin.admin_user_id].push(admin)
+    }
+    return map
+  }, [admins])
 
-  // Check if user is a sponsorship coordinator and get their RUCs
-  const getUserSponsorshipCoordinatorRucs = (edipi: string) => {
-    return sponsorshipCoordinators.filter(c => c.coordinator_edipi === edipi).map(c => c.ruc)
-  }
+  const userCoordinatorRucsMap = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    for (const coord of sponsorshipCoordinators) {
+      if (!map[coord.coordinator_edipi]) {
+        map[coord.coordinator_edipi] = []
+      }
+      map[coord.coordinator_edipi].push(coord.ruc)
+    }
+    return map
+  }, [sponsorshipCoordinators])
 
   // Filter units for the searchable dropdown
-  const filteredUnitsForDropdown = units.filter(u => {
+  const filteredUnitsForDropdown = useMemo(() => {
     const q = unitSearchQuery.trim().toLowerCase()
-    if (!q) return true
-    return (
+    if (!q) return units
+    return units.filter(u => (
       (u.unit_name || '').toLowerCase().includes(q) ||
       (u.unit_key || '').toLowerCase().includes(q) ||
       (u.uic || '').toLowerCase().includes(q) ||
       (u.ruc || '').toLowerCase().includes(q)
-    )
-  })
+    ))
+  }, [units, unitSearchQuery])
 
   // Handle assigning user as Unit Admin
-  const handleAssignUnitAdmin = async (userEdipi: string, unit: any) => {
+  const handleAssignUnitAdmin = async (userEdipi: string, unit: Unit) => {
     setAssigningUnitAdmin(true)
     try {
       await sbUpsertUnitAdmin(unit.unit_key, unit.unit_name, userEdipi, unit.ruc)
@@ -342,8 +364,8 @@ export default function AdminDashboard() {
                   <tbody>
                     {filteredUsers.map(u => {
                       const isExpanded = expandedUser === u.edipi
-                      const userAdminUnits = getUserAdminUnits(u.edipi)
-                      const coordinatorRucs = getUserSponsorshipCoordinatorRucs(u.edipi)
+                      const userAdminUnits = userAdminUnitsMap[u.edipi] || []
+                      const coordinatorRucs = userCoordinatorRucsMap[u.edipi] || []
                       const hasCoordinatorPermission = coordinatorRucs.length > 0
 
                       return (
