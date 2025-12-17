@@ -16,6 +16,74 @@ type Unit = {
   mcc: string
 }
 
+// Page size options for pagination
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
+
+// Format date helper
+const formatDate = (dateString: string | undefined) => {
+  if (!dateString) return '-'
+  try {
+    return new Date(dateString).toLocaleDateString()
+  } catch {
+    return '-'
+  }
+}
+
+// Pagination controls component
+const PaginationControls = ({
+  currentPage,
+  totalPages,
+  pageSize,
+  totalItems,
+  onPageChange,
+  onPageSizeChange
+}: {
+  currentPage: number
+  totalPages: number
+  pageSize: number
+  totalItems: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
+}) => (
+  <div className="flex items-center justify-between mt-4 text-sm">
+    <div className="flex items-center gap-2 text-gray-400">
+      <span>Show</span>
+      <select
+        value={pageSize}
+        onChange={(e) => {
+          onPageSizeChange(Number(e.target.value))
+          onPageChange(1)
+        }}
+        className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+      >
+        {PAGE_SIZE_OPTIONS.map(size => (
+          <option key={size} value={size}>{size}</option>
+        ))}
+      </select>
+      <span>of {totalItems}</span>
+    </div>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+        className="px-3 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-40"
+      >
+        Previous
+      </button>
+      <span className="text-gray-400">
+        Page {currentPage} of {totalPages || 1}
+      </span>
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage >= totalPages}
+        className="px-3 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-40"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+)
+
 export default function AdminDashboard() {
   const { user } = useAuthStore()
   const [query, setQuery] = useState('')
@@ -185,71 +253,14 @@ export default function AdminDashboard() {
 
   const totalUsersPages = Math.ceil(filteredUsers.length / usersPageSize)
 
-  // Format date helper
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return '-'
-    try {
-      return new Date(dateString).toLocaleDateString()
-    } catch {
-      return '-'
-    }
-  }
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setUnitsPage(1)
+  }, [query])
 
-  // Pagination controls component
-  const PaginationControls = ({
-    currentPage,
-    totalPages,
-    pageSize,
-    totalItems,
-    onPageChange,
-    onPageSizeChange
-  }: {
-    currentPage: number
-    totalPages: number
-    pageSize: number
-    totalItems: number
-    onPageChange: (page: number) => void
-    onPageSizeChange: (size: number) => void
-  }) => (
-    <div className="flex items-center justify-between mt-4 text-sm">
-      <div className="flex items-center gap-2 text-gray-400">
-        <span>Show</span>
-        <select
-          value={pageSize}
-          onChange={(e) => {
-            onPageSizeChange(Number(e.target.value))
-            onPageChange(1)
-          }}
-          className="px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
-        >
-          <option value={10}>10</option>
-          <option value={25}>25</option>
-          <option value={50}>50</option>
-          <option value={100}>100</option>
-        </select>
-        <span>of {totalItems}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="px-3 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-40"
-        >
-          Previous
-        </button>
-        <span className="text-gray-400">
-          Page {currentPage} of {totalPages || 1}
-        </span>
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="px-3 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-40"
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  )
+  useEffect(() => {
+    setUsersPage(1)
+  }, [userQuery])
 
   // Handle assigning user as Unit Admin
   const handleAssignUnitAdmin = async (userEdipi: string, unit: Unit) => {
@@ -610,7 +621,7 @@ export default function AdminDashboard() {
                               disabled={assigningUnitAdmin}
                             />
                             {unitSearchQuery && (
-                              <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-github-gray border border-github-border rounded-lg shadow-lg">
+                              <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-github-dark border border-github-border rounded-lg shadow-lg">
                                 {filteredUnitsForDropdown.length > 0 ? (
                                   filteredUnitsForDropdown.slice(0, 10).map(unit => (
                                     <button
