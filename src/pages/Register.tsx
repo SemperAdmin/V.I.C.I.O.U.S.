@@ -6,6 +6,7 @@ import { sha256String } from '@/utils/crypto'
 import '@/js/military-data.js'
 import { triggerCreateUserDispatch } from '@/services/workflowService'
 import { sbInsertUser, sbUpsertProgress } from '@/services/supabaseDataService'
+import { sbCheckRucHasAdmin, sbUpsertUnitAdmin, sbPromoteUserToUnitAdmin } from '@/services/adminService'
 import { listSections } from '@/utils/unitStructure'
 
 export default function Register() {
@@ -47,6 +48,7 @@ export default function Register() {
   const [platoons, setPlatoons] = useState<{ id: string; name: string }[]>([])
   const [unitQuery, setUnitQuery] = useState('')
   const [unitOpen, setUnitOpen] = useState(false)
+  const [autoAdminNotice, setAutoAdminNotice] = useState<string | null>(null)
 
   const handleGenerate = async () => {
     setError('')
@@ -245,6 +247,24 @@ export default function Register() {
       const bcrypt2 = (mod2 as any).default || mod2
       const hashed = await bcrypt2.hash(password, 12)
       const now = new Date().toISOString()
+
+      // Extract RUC from unitId (format: UIC-RUC-MCC)
+      const unitObj = units.find(u => u.id === unitId)
+      const ruc = unitObj?.ruc || (unitId.includes('-') ? unitId.split('-')[1] : unitId)
+      const unitName = unitObj?.name || unitId
+
+      // Check if the RUC has a unit admin assigned
+      let finalOrgRole = orgRole
+      let wasAutoAssignedAdmin = false
+      if (import.meta.env.VITE_USE_SUPABASE === '1' && ruc) {
+        const hasAdmin = await sbCheckRucHasAdmin(ruc)
+        if (!hasAdmin) {
+          // No admin for this RUC - auto-assign this user as Unit Admin
+          finalOrgRole = 'Unit_Admin'
+          wasAutoAssignedAdmin = true
+        }
+      }
+
       const userProfile = {
         user_id: userId,
         edipi,
@@ -254,7 +274,7 @@ export default function Register() {
         last_name: lastName,
         branch: branch || undefined,
         rank: rank || undefined,
-        org_role: orgRole,
+        org_role: finalOrgRole,
         unit_id: unitId,
         company_id: companyId || undefined,
         platoon_id: platoonId || undefined,
@@ -262,7 +282,7 @@ export default function Register() {
         created_at_timestamp: now,
         updated_at_timestamp: now
       }
-      const progress = orgRole === 'Member' ? (() => {
+      const progress = finalOrgRole === 'Member' ? (() => {
         const base = {
           member_user_id: userId,
           unit_id: unitId,
@@ -280,6 +300,13 @@ export default function Register() {
       if (import.meta.env.VITE_USE_SUPABASE === '1') {
         await sbInsertUser(userProfile as any)
         if (progress) await sbUpsertProgress(progress as any)
+
+        // If auto-assigned as admin, create the unit_admin entry
+        if (wasAutoAssignedAdmin && ruc) {
+          await sbUpsertUnitAdmin(unitId, unitName, edipi, ruc)
+          await sbPromoteUserToUnitAdmin(edipi, unitId)
+          setAutoAdminNotice(`You are the first user in RUC ${ruc} to create an account. You have been automatically assigned as the Unit Administrator for this unit.`)
+        }
       } else {
         await triggerCreateUserDispatch('SemperAdmin', 'Process-Point-Data', {
           user: userProfile,
@@ -287,6 +314,11 @@ export default function Register() {
         })
       }
       login(userProfile)
+
+      // If auto-assigned, show alert then navigate
+      if (wasAutoAssignedAdmin) {
+        alert(`Welcome! You are the first user in RUC ${ruc} to create an account. You have been automatically assigned as the Unit Administrator for this unit.`)
+      }
       navigate(returnUrl)
     } catch (e: any) {
       setError(e?.message || 'Submit failed')

@@ -76,6 +76,17 @@ export const sbRemoveUnitAdmin = async (unit_key: string, admin_user_id: string)
   if (error) throw error
 }
 
+export const sbCheckRucHasAdmin = async (ruc: string): Promise<boolean> => {
+  if (!isSupabaseConfigured()) return false
+  const { data, error } = await supabase
+    .from('unit_admins')
+    .select('admin_user_id')
+    .eq('ruc', ruc)
+    .limit(1)
+  if (error) throw error
+  return (data?.length || 0) > 0
+}
+
 export const sbPromoteUserToUnitAdmin = async (edipi: string, unit_key: string): Promise<void> => {
   if (!isSupabaseConfigured()) return
   // Best-effort role promotion if a users table exists
