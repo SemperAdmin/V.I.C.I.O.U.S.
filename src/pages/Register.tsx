@@ -48,7 +48,6 @@ export default function Register() {
   const [platoons, setPlatoons] = useState<{ id: string; name: string }[]>([])
   const [unitQuery, setUnitQuery] = useState('')
   const [unitOpen, setUnitOpen] = useState(false)
-  const [autoAdminNotice, setAutoAdminNotice] = useState<string | null>(null)
 
   const handleGenerate = async () => {
     setError('')
@@ -305,7 +304,6 @@ export default function Register() {
         if (wasAutoAssignedAdmin && ruc) {
           await sbUpsertUnitAdmin(unitId, unitName, edipi, ruc)
           await sbPromoteUserToUnitAdmin(edipi, unitId)
-          setAutoAdminNotice(`You are the first user in RUC ${ruc} to create an account. You have been automatically assigned as the Unit Administrator for this unit.`)
         }
       } else {
         await triggerCreateUserDispatch('SemperAdmin', 'Process-Point-Data', {
