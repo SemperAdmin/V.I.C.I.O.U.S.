@@ -78,13 +78,12 @@ export const sbRemoveUnitAdmin = async (unit_key: string, admin_user_id: string)
 
 export const sbCheckRucHasAdmin = async (ruc: string): Promise<boolean> => {
   if (!isSupabaseConfigured()) return false
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from('unit_admins')
-    .select('admin_user_id')
+    .select('*', { count: 'exact', head: true })
     .eq('ruc', ruc)
-    .limit(1)
   if (error) throw error
-  return (data?.length || 0) > 0
+  return (count || 0) > 0
 }
 
 export const sbPromoteUserToUnitAdmin = async (edipi: string, unit_key: string): Promise<void> => {
@@ -95,6 +94,7 @@ export const sbPromoteUserToUnitAdmin = async (edipi: string, unit_key: string):
       .from('users')
       .update({ org_role: 'Unit_Admin' })
       .eq('edipi', edipi)
+      .eq('unit_id', unit_key)
     if (error) throw error
   } catch {
     // silently ignore if schema differs in local/dev
