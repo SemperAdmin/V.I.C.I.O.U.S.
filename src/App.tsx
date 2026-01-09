@@ -14,6 +14,7 @@ import UnitManagerDashboard from './pages/UnitManagerDashboard'
 import SectionManagerDashboard from './pages/SectionManagerDashboard'
 import TaskManagerDashboard from './pages/TaskManagerDashboard'
 import SponsorshipCoordinatorDashboard from './pages/SponsorshipCoordinatorDashboard'
+import InstallationAdminDashboard from './pages/InstallationAdminDashboard'
 import Enroll from './pages/Enroll'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           <Route path="/section-manager" element={<SectionManagerDashboard />} />
           <Route path="/task-manager" element={<TaskManagerDashboard />} />
           <Route path="/sponsorship-coordinator" element={<SponsorshipCoordinatorDashboard />} />
+          <Route path="/installation-admin" element={<InstallationAdminDashboard />} />
           <Route path="/editor/:owner/:repo/*" element={<FileEditor />} />
           <Route path="/history/:owner/:repo/*" element={<HistoryView />} />
           <Route path="/settings" element={<Settings />} />
