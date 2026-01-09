@@ -130,6 +130,8 @@ export default function AdminDashboard() {
   const [sponsorshipCoordinators, setSponsorshipCoordinators] = useState<SponsorshipCoordinator[]>([])
   const [unitSearchQuery, setUnitSearchQuery] = useState('')
   const [assigningUnitAdmin, setAssigningUnitAdmin] = useState(false)
+  const [installationSearchQuery, setInstallationSearchQuery] = useState('')
+  const [assigningInstaAdmin, setAssigningInstaAdmin] = useState(false)
   // Pagination state
   const [unitsPage, setUnitsPage] = useState(1)
   const [unitsPageSize, setUnitsPageSize] = useState(10)
@@ -233,6 +235,11 @@ export default function AdminDashboard() {
     return [p.first_name, p.last_name].filter(Boolean).join(' ')
   }
 
+  // Get installation for a unit
+  const getInstallationForUnit = (unitKey: string) => {
+    return installations.find(i => i.unit_ids?.includes(unitKey))
+  }
+
   // Pre-compute maps for efficient lookup in render loop
   const userAdminUnitsMap = useMemo(() => {
     const map: Record<string, typeof admins> = {}
@@ -255,6 +262,32 @@ export default function AdminDashboard() {
     }
     return map
   }, [sponsorshipCoordinators])
+
+  // Map user EDIPI to installations they admin
+  const userInstaAdminMap = useMemo(() => {
+    const map: Record<string, Installation[]> = {}
+    for (const inst of installations) {
+      for (const edipi of (inst.insta_admin_user_ids || [])) {
+        if (!map[edipi]) {
+          map[edipi] = []
+        }
+        map[edipi].push(inst)
+      }
+    }
+    return map
+  }, [installations])
+
+  // Filter installations for searchable dropdown
+  const filteredInstallationsForDropdown = useMemo(() => {
+    const q = installationSearchQuery.trim().toLowerCase()
+    if (!q) return installations
+    return installations.filter(i => (
+      (i.name || '').toLowerCase().includes(q) ||
+      (i.acronym || '').toLowerCase().includes(q) ||
+      (i.location || '').toLowerCase().includes(q) ||
+      (i.id || '').toLowerCase().includes(q)
+    ))
+  }, [installations, installationSearchQuery])
 
   // Filter units for the searchable dropdown
   const filteredUnitsForDropdown = useMemo(() => {
@@ -399,6 +432,32 @@ export default function AdminDashboard() {
     }
   }
 
+  // Handle assigning user as Installation Admin from user modal
+  const handleAssignInstaAdminFromModal = async (userEdipi: string, inst: Installation) => {
+    setAssigningInstaAdmin(true)
+    try {
+      await addInstaAdmin(inst.id, userEdipi)
+      setInstallations(await listInstallations())
+      setInstallationSearchQuery('')
+    } catch (error) {
+      console.error('Failed to assign installation admin:', error)
+      alert('Failed to assign installation admin. Please try again.')
+    } finally {
+      setAssigningInstaAdmin(false)
+    }
+  }
+
+  // Handle removing user as Installation Admin from user modal
+  const handleRemoveInstaAdminFromModal = async (userEdipi: string, installationId: string) => {
+    try {
+      await removeInstaAdmin(installationId, userEdipi)
+      setInstallations(await listInstallations())
+    } catch (error) {
+      console.error('Failed to remove installation admin:', error)
+      alert('Failed to remove installation admin. Please try again.')
+    }
+  }
+
   // Handle assigning user as Unit Admin
   const handleAssignUnitAdmin = async (userEdipi: string, unit: Unit) => {
     setAssigningUnitAdmin(true)
@@ -489,6 +548,7 @@ export default function AdminDashboard() {
                       <th className="text-left p-2">UIC</th>
                       <th className="text-left p-2">RUC</th>
                       <th className="text-left p-2">MCC</th>
+                      <th className="text-left p-2">Installation</th>
                       <th className="text-left p-2">Admins</th>
                       <th className="text-left p-2">Manage</th>
                     </tr>
@@ -524,6 +584,16 @@ export default function AdminDashboard() {
                           <td className="p-2">{u.uic}</td>
                           <td className="p-2">{u.ruc}</td>
                           <td className="p-2">{u.mcc}</td>
+                          <td className="p-2">
+                            {(() => {
+                              const inst = getInstallationForUnit(uk)
+                              return inst ? (
+                                <span className="text-semper-gold">{inst.acronym || inst.name}</span>
+                              ) : (
+                                <span className="text-gray-500">-</span>
+                              )
+                            })()}
+                          </td>
                           <td className="p-2">{adminsForUnit.length ? <span>Assigned</span> : <span className="text-gray-500">Unassigned</span>}</td>
                           <td className="p-2">
                             {editingUnit === uk ? (
@@ -679,6 +749,7 @@ export default function AdminDashboard() {
                 if (!editingUser) return null
                 const userAdminUnits = userAdminUnitsMap[editingUserEdipi] || []
                 const coordinatorRucs = userCoordinatorRucsMap[editingUserEdipi] || []
+                const userInstaAdmins = userInstaAdminMap[editingUserEdipi] || []
 
                 return (
                   <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
@@ -689,6 +760,7 @@ export default function AdminDashboard() {
                           onClick={() => {
                             setEditingUserEdipi(null)
                             setUnitSearchQuery('')
+                            setInstallationSearchQuery('')
                           }}
                           className="text-gray-400 hover:text-white text-2xl"
                         >
@@ -786,6 +858,70 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
+                      {/* Installation Admin Assignment */}
+                      <div className="mb-6 p-4 bg-github-gray bg-opacity-10 border border-github-border rounded-lg">
+                        <h4 className="text-white font-medium mb-3">Installation Admin Permissions</h4>
+                        {userInstaAdmins.length > 0 ? (
+                          <div className="mb-4">
+                            <p className="text-gray-400 text-sm mb-2">Currently assigned as Installation Admin for:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {userInstaAdmins.map(inst => (
+                                <span
+                                  key={inst.id}
+                                  className="inline-flex items-center gap-2 px-3 py-1 bg-semper-gold bg-opacity-20 border border-semper-gold rounded-lg text-white"
+                                >
+                                  {inst.acronym || inst.name}
+                                  <button
+                                    onClick={() => handleRemoveInstaAdminFromModal(editingUserEdipi, inst.id)}
+                                    className="ml-1 px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
+                                  >
+                                    Remove
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 text-sm mb-4">Not assigned as Installation Admin for any installations</p>
+                        )}
+
+                        {/* Assign Installation Admin Dropdown */}
+                        <div className="mt-3">
+                          <p className="text-gray-400 text-sm mb-2">Assign as Installation Admin:</p>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={installationSearchQuery}
+                              onChange={(e) => setInstallationSearchQuery(e.target.value)}
+                              placeholder="Search installations by name or acronym..."
+                              className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-semper-gold"
+                              disabled={assigningInstaAdmin}
+                            />
+                            {installationSearchQuery && (
+                              <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-github-dark border border-github-border rounded-lg shadow-lg">
+                                {filteredInstallationsForDropdown.length > 0 ? (
+                                  filteredInstallationsForDropdown
+                                    .filter(inst => !userInstaAdmins.some(ui => ui.id === inst.id))
+                                    .slice(0, 10).map(inst => (
+                                    <button
+                                      key={inst.id}
+                                      onClick={() => handleAssignInstaAdminFromModal(editingUserEdipi, inst)}
+                                      className="w-full px-4 py-2 text-left text-white hover:bg-semper-gold hover:bg-opacity-30 border-b border-github-border last:border-b-0"
+                                      disabled={assigningInstaAdmin}
+                                    >
+                                      <div className="font-medium">{inst.name}</div>
+                                      <div className="text-xs text-gray-400">{inst.acronym || inst.id} - {inst.location || 'No location'}</div>
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="px-4 py-2 text-gray-400">No matching installations found</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Sponsorship Coordinator (View Only) */}
                       <div className="mb-6 p-4 bg-github-gray bg-opacity-10 border border-github-border rounded-lg">
                         <h4 className="text-white font-medium mb-3">Sponsorship Coordinator Permission</h4>
@@ -811,6 +947,7 @@ export default function AdminDashboard() {
                           onClick={() => {
                             setEditingUserEdipi(null)
                             setUnitSearchQuery('')
+                            setInstallationSearchQuery('')
                           }}
                           className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
                         >
