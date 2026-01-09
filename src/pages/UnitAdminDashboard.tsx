@@ -5,6 +5,8 @@ import { listForms, createForm, deleteForm, updateForm, UnitForm, UnitFormPurpos
 import { createSubmission } from '@/utils/myFormSubmissionsStore'
 import { sbCreateSubmission } from '@/services/supabaseDataService'
 import { listSections, createSection, deleteSection, listCompanies, createCompany, deleteCompany, updateSection, UnitSection, UnitCompany } from '@/utils/unitStructure'
+import { getInheritedTasksForForm } from '@/services/supabaseInstallationService'
+import type { InstallationSubTask } from '@/types'
 import HeaderTools from '@/components/HeaderTools'
 import { googleMapsLink } from '@/utils/maps'
 import BrandMark from '@/components/BrandMark'
@@ -97,6 +99,7 @@ export default function UnitAdminDashboard() {
   const [newFormTaskIds, setNewFormTaskIds] = useState<string[]>([])
   const [editingFormId, setEditingFormId] = useState<number | null>(null)
   const [newFormPurpose, setNewFormPurpose] = useState<UnitFormPurpose>('PCS')
+  const [inheritedTasks, setInheritedTasks] = useState<InstallationSubTask[]>([])
   const [qrModalOpen, setQrModalOpen] = useState(false)
   const [qrForm, setQrForm] = useState<UnitForm | null>(null)
   const [platoons, setPlatoons] = useState<string[]>([])
@@ -299,6 +302,24 @@ export default function UnitAdminDashboard() {
     }
     loadUsers()
   }, [unitId, selectedCompany, selectedPlatoon, assignedUnits])
+
+  // Fetch inherited installation tasks when form type or purpose changes
+  useEffect(() => {
+    if (!unitId || !createModalOpen) {
+      setInheritedTasks([])
+      return
+    }
+    const loadInherited = async () => {
+      try {
+        const tasks = await getInheritedTasksForForm(unitId, newFormKind, newFormPurpose)
+        setInheritedTasks(tasks)
+      } catch (err) {
+        console.warn('Failed to load inherited tasks:', err)
+        setInheritedTasks([])
+      }
+    }
+    loadInherited()
+  }, [unitId, newFormKind, newFormPurpose, createModalOpen])
 
   const overrideRole = getRoleOverride(user?.edipi || '')?.org_role
   const isAssignedAdmin = !!globalAdmins.find(a => a.admin_user_id === (user?.edipi || ''))
@@ -1158,6 +1179,24 @@ export default function UnitAdminDashboard() {
                             ))}
                           </div>
                         </div>
+                        {inheritedTasks.length > 0 && (
+                          <div className="space-y-2 mt-4 pt-4 border-t border-github-border">
+                            <div className="flex items-center gap-2">
+                              <div className="text-semper-gold text-sm font-medium">Installation Tasks ({inheritedTasks.length})</div>
+                              <span className="text-gray-500 text-xs">(inherited, cannot be removed)</span>
+                            </div>
+                            <div className="max-h-32 overflow-auto space-y-1">
+                              {inheritedTasks.map(t => (
+                                <div key={t.id} className="flex items-center gap-2 px-2 py-1 bg-semper-gold bg-opacity-10 border border-semper-gold border-opacity-30 rounded text-gray-300 text-sm">
+                                  <svg className="w-4 h-4 text-semper-gold flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                  </svg>
+                                  <span className="truncate">{t.description}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-6 flex gap-2 justify-end">
                         <button
@@ -1254,7 +1293,10 @@ export default function UnitAdminDashboard() {
                             default: return ''
                           }
                         })()}</td>
-                        <td className="p-2 text-center">{f.task_ids.length}</td>
+                        <td className="p-2 text-center">
+                          <span>{f.task_ids.length}</span>
+                          <span className="text-semper-gold text-xs ml-1" title="Plus inherited installation tasks">+</span>
+                        </td>
                         <td className="p-2">
                           <div className="flex flex-wrap gap-1">
                           <button
