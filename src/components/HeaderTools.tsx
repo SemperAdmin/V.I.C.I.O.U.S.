@@ -1,4 +1,4 @@
-import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck, Building2, Users, HeartHandshake } from 'lucide-react'
+import { Shield, ListChecks, Settings as Gear, LogOut, ChevronDown, UserCheck, Building2, Users, HeartHandshake, Landmark } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useEffect, useState } from 'react'
@@ -6,6 +6,7 @@ import { getRoleOverride } from '@/utils/localUsersStore'
 import { normalizeOrgRole } from '@/utils/roles'
 import { sbListUnitAdmins, sbGetCoordinatorRucs } from '@/services/adminService'
 import { listSections } from '@/utils/unitStructure'
+import { listInstallations } from '@/services/supabaseInstallationService'
 
 export default function HeaderTools() {
   const navigate = useNavigate()
@@ -14,6 +15,7 @@ export default function HeaderTools() {
   const [sectionLabel, setSectionLabel] = useState('')
   const [isAssignedUnitAdmin, setIsAssignedUnitAdmin] = useState(false)
   const [isAssignedSponsorshipCoordinator, setIsAssignedSponsorshipCoordinator] = useState(false)
+  const [isAssignedInstaAdmin, setIsAssignedInstaAdmin] = useState(false)
 
   // Get effective role: override takes precedence over stored user role
   const roleOverride = getRoleOverride(user?.edipi || '')
@@ -62,6 +64,23 @@ export default function HeaderTools() {
     if (user?.edipi) loadCoordinatorStatus()
   }, [user?.edipi])
 
+  useEffect(() => {
+    const loadInstaAdminStatus = async () => {
+      try {
+        const installations = await listInstallations()
+        const isAdmin = installations.some(i =>
+          i.insta_admin_user_ids?.includes(user?.edipi || '') ||
+          i.insta_admin_user_ids?.includes(user?.user_id || '')
+        )
+        setIsAssignedInstaAdmin(isAdmin)
+      } catch (err) {
+        console.error('Failed to load installation admin status:', err)
+        setIsAssignedInstaAdmin(false)
+      }
+    }
+    if (user?.edipi || user?.user_id) loadInstaAdminStatus()
+  }, [user?.edipi, user?.user_id])
+
   const handleLogout = () => {
     logout()
     navigate('/')
@@ -92,6 +111,12 @@ export default function HeaderTools() {
                 <button onMouseDown={() => { setOpen(false); navigate('/unit-admin') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
                   <Shield className="w-5 h-5 mr-2" />
                   Unit Admin
+                </button>
+              )}
+              {(effectiveRole === 'Insta_Admin' || isAssignedInstaAdmin || user?.is_insta_admin) && (
+                <button onMouseDown={() => { setOpen(false); navigate('/installation-admin') }} className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-700 text-white">
+                  <Landmark className="w-5 h-5 mr-2" />
+                  Installation Admin
                 </button>
               )}
               {effectiveRole === 'Unit_Manager' && (
