@@ -655,7 +655,7 @@ export default function AdminDashboard() {
                 onPageSizeChange={setUnitsPageSize}
               />
             </>
-          ) : (
+          ) : tab === 'users' ? (
             <>
               <div className="flex items-center mb-4">
                 <input
