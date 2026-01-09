@@ -63,6 +63,7 @@ export default function InstallationAdminDashboard() {
   // Units state
   const [availableUnits, setAvailableUnits] = useState<Array<{ id: string; name: string; uic?: string; ruc?: string }>>([])
   const [unitsTab, setUnitsTab] = useState<'assigned' | 'unassigned'>('assigned')
+  const [unitSearchQuery, setUnitSearchQuery] = useState('')
 
   // Members state
   const [members, setMembers] = useState<LocalUserProfile[]>([])
@@ -171,6 +172,26 @@ export default function InstallationAdminDashboard() {
   const isAppAdmin = user?.is_app_admin || user?.org_role === 'App_Admin'
   const isInstaAdmin = installation?.insta_admin_user_ids?.includes(user?.edipi || '') ||
                        installation?.insta_admin_user_ids?.includes(user?.user_id || '')
+
+  // Filter installations to only those the user can admin
+  const userInstallations = isAppAdmin
+    ? installations
+    : installations.filter(i =>
+        i.insta_admin_user_ids?.includes(user?.edipi || '') ||
+        i.insta_admin_user_ids?.includes(user?.user_id || '')
+      )
+
+  // Filter units based on search query
+  const filteredUnits = availableUnits.filter(u => {
+    if (!unitSearchQuery.trim()) return true
+    const q = unitSearchQuery.toLowerCase()
+    return (
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.uic || '').toLowerCase().includes(q) ||
+      (u.ruc || '').toLowerCase().includes(q) ||
+      (u.id || '').toLowerCase().includes(q)
+    )
+  })
 
   if (!user) {
     return (
@@ -367,20 +388,22 @@ export default function InstallationAdminDashboard() {
       </header>
 
       {/* Installation Selector */}
-      {installations.length > 0 && (
+      {userInstallations.length > 0 && (
         <div className="bg-github-gray bg-opacity-5 border-b border-github-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               <label className="text-sm font-medium text-gray-300 whitespace-nowrap">Installation:</label>
-              {installations.length === 1 ? (
-                <span className="text-white text-sm font-semibold">{installations[0].name}</span>
+              {userInstallations.length === 1 ? (
+                <span className="text-white text-sm font-semibold">
+                  {userInstallations[0].acronym ? `${userInstallations[0].acronym} - ${userInstallations[0].name}` : userInstallations[0].name}
+                </span>
               ) : (
                 <select
                   value={selectedInstallationId}
                   onChange={(e) => setSelectedInstallationId(e.target.value)}
                   className="bg-semper-navy bg-opacity-80 border border-gray-600 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-semper-gold"
                 >
-                  {installations.map((inst) => (
+                  {userInstallations.map((inst) => (
                     <option key={inst.id} value={inst.id}>
                       {inst.acronym ? `${inst.acronym} - ${inst.name}` : inst.name}
                     </option>
@@ -857,19 +880,30 @@ export default function InstallationAdminDashboard() {
                 <div className="text-gray-300 text-sm mb-4">
                   Assign units to this installation. Assigned units will inherit installation sections and tasks.
                 </div>
-                <div className="flex overflow-x-auto border-b border-github-border">
-                  <button
-                    onClick={() => setUnitsTab('assigned')}
-                    className={`px-3 py-2 text-sm ${unitsTab === 'assigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
-                  >
-                    Assigned ({installation?.unit_ids?.length || 0})
-                  </button>
-                  <button
-                    onClick={() => setUnitsTab('unassigned')}
-                    className={`px-3 py-2 text-sm ${unitsTab === 'unassigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
-                  >
-                    Available
-                  </button>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                  <div className="flex overflow-x-auto border-b border-github-border sm:border-b-0">
+                    <button
+                      onClick={() => setUnitsTab('assigned')}
+                      className={`px-3 py-2 text-sm ${unitsTab === 'assigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+                    >
+                      Assigned ({installation?.unit_ids?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setUnitsTab('unassigned')}
+                      className={`px-3 py-2 text-sm ${unitsTab === 'unassigned' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+                    >
+                      Available
+                    </button>
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={unitSearchQuery}
+                      onChange={(e) => setUnitSearchQuery(e.target.value)}
+                      placeholder="Search units by name, UIC, or RUC..."
+                      className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue text-sm"
+                    />
+                  </div>
                 </div>
                 <div className="overflow-x-auto -mx-3 sm:mx-0">
                   <table className="min-w-full text-xs sm:text-sm">
@@ -883,9 +917,9 @@ export default function InstallationAdminDashboard() {
                     </thead>
                     <tbody>
                       {(unitsTab === 'assigned'
-                        ? availableUnits.filter((u) => installation?.unit_ids?.includes(u.id))
-                        : availableUnits.filter((u) => !installation?.unit_ids?.includes(u.id))
-                      ).slice(0, 50).map((u) => (
+                        ? filteredUnits.filter((u) => installation?.unit_ids?.includes(u.id))
+                        : filteredUnits.filter((u) => !installation?.unit_ids?.includes(u.id))
+                      ).slice(0, 100).map((u) => (
                         <tr key={u.id} className="border-t border-github-border text-gray-300">
                           <td className="p-2">{u.name}</td>
                           <td className="p-2">{u.uic}</td>
@@ -911,6 +945,11 @@ export default function InstallationAdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  {filteredUnits.length === 0 && unitSearchQuery && (
+                    <div className="text-center py-8 text-gray-400">
+                      No units found matching "{unitSearchQuery}"
+                    </div>
+                  )}
                 </div>
               </div>
             )}
