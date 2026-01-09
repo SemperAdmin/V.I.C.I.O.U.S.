@@ -1293,10 +1293,7 @@ export default function UnitAdminDashboard() {
                             default: return ''
                           }
                         })()}</td>
-                        <td className="p-2 text-center">
-                          <span>{f.task_ids.length}</span>
-                          <span className="text-semper-gold text-xs ml-1" title="Plus inherited installation tasks">+</span>
-                        </td>
+                        <td className="p-2 text-center">{f.task_ids.length}</td>
                         <td className="p-2">
                           <div className="flex flex-wrap gap-1">
                           <button

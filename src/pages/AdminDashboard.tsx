@@ -479,7 +479,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleUpdateUserUnit = async (userEdipi: string, userId: string, newUnitId: string) => {
+  const handleUpdateUserUnit = async (userId: string, newUnitId: string) => {
     setUpdatingUserUnit(true)
     try {
       await sbUpdateUser(userId, { unit_id: newUnitId })
@@ -836,8 +836,8 @@ export default function AdminDashboard() {
                               />
                               {editUserUnitSearch && (
                                 <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-github-dark border border-github-border rounded-lg shadow-lg">
-                                  {units
-                                    .filter((u: Unit) => {
+                                  {(() => {
+                                    const filteredUnits = units.filter((u: Unit) => {
                                       const q = editUserUnitSearch.toLowerCase()
                                       return (
                                         u.unit_name.toLowerCase().includes(q) ||
@@ -846,29 +846,23 @@ export default function AdminDashboard() {
                                         u.ruc.toLowerCase().includes(q)
                                       )
                                     })
-                                    .slice(0, 10)
-                                    .map((unit: Unit) => (
+
+                                    if (filteredUnits.length === 0) {
+                                      return <div className="px-3 py-2 text-gray-400 text-sm">No matching units found</div>
+                                    }
+
+                                    return filteredUnits.slice(0, 10).map((unit: Unit) => (
                                       <button
                                         key={unit.unit_key}
-                                        onClick={() => handleUpdateUserUnit(editingUserEdipi, editingUser.user_id, unit.unit_key)}
+                                        onClick={() => handleUpdateUserUnit(editingUser.user_id, unit.unit_key)}
                                         className="w-full px-3 py-2 text-left text-white hover:bg-github-blue hover:bg-opacity-30 border-b border-github-border last:border-b-0"
                                         disabled={updatingUserUnit}
                                       >
                                         <div className="font-medium text-sm">{unit.unit_name}</div>
                                         <div className="text-xs text-gray-400">{unit.unit_key}</div>
                                       </button>
-                                    ))}
-                                  {units.filter((u: Unit) => {
-                                    const q = editUserUnitSearch.toLowerCase()
-                                    return (
-                                      u.unit_name.toLowerCase().includes(q) ||
-                                      u.unit_key.toLowerCase().includes(q) ||
-                                      u.uic.toLowerCase().includes(q) ||
-                                      u.ruc.toLowerCase().includes(q)
-                                    )
-                                  }).length === 0 && (
-                                    <div className="px-3 py-2 text-gray-400 text-sm">No matching units found</div>
-                                  )}
+                                    ))
+                                  })()}
                                 </div>
                               )}
                               <button
