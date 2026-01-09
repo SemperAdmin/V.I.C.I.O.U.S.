@@ -199,6 +199,23 @@ const MilitaryData = {
         warrant: []
     },
 
+    // Civilian Titles
+    Civilian: {
+        titles: [
+            { value: 'Mr', label: 'Mr.' },
+            { value: 'Mrs', label: 'Mrs.' },
+            { value: 'Ms', label: 'Ms.' },
+            { value: 'Dr', label: 'Dr.' },
+            { value: 'Contractor', label: 'Contractor' },
+            { value: 'GS', label: 'Government Employee (GS)' },
+            { value: 'Dependent', label: 'Dependent' },
+            { value: 'Guest', label: 'Guest' }
+        ],
+        enlisted: [],
+        officer: [],
+        warrant: []
+    },
+
     // Maintain backward compatibility
     marineCorps: null, // Will be set below
 
@@ -214,12 +231,16 @@ const MilitaryData = {
         { value: 'Other', label: 'Other' }
     ],
 
-    // Get ranks for a specific branch
+    // Get ranks for a specific branch (or titles for Civilian)
     getRanksForBranch(branchValue) {
         const branchData = this[branchValue];
         if (!branchData) return [];
 
         const ranks = [];
+        // Include civilian titles if present
+        if (branchData.titles && branchData.titles.length > 0) {
+            ranks.push(...branchData.titles);
+        }
         if (branchData.officer && branchData.officer.length > 0) {
             ranks.push(...branchData.officer);
         }
@@ -243,11 +264,12 @@ const MilitaryData = {
 
     // Get rank display with proper formatting
     formatRank(rankValue) {
-        // Search all branches for the rank
-        for (const branchKey of ['USMC', 'USA', 'USN', 'USAF', 'USCG', 'USSF']) {
+        // Search all branches for the rank (including Civilian titles)
+        for (const branchKey of ['USMC', 'USA', 'USN', 'USAF', 'USCG', 'USSF', 'Civilian']) {
             const branchData = this[branchKey];
             if (branchData) {
                 const allRanks = [
+                    ...(branchData.titles || []),
                     ...(branchData.enlisted || []),
                     ...(branchData.officer || []),
                     ...(branchData.warrant || [])
