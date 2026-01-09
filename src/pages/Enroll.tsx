@@ -5,6 +5,7 @@ import { listForms, UnitForm } from '@/utils/formsStore'
 import { listSubTasks } from '@/utils/unitTasks'
 import { createSubmission } from '@/utils/myFormSubmissionsStore'
 import { sbCreateSubmission, sbUpdateUser } from '@/services/supabaseDataService'
+import { getInheritedTasksForForm } from '@/services/supabaseInstallationService'
 import BrandMark from '@/components/BrandMark'
 import { UNITS } from '@/utils/units'
 
@@ -82,24 +83,48 @@ export default function Enroll() {
 
     setCreating(true)
     try {
-      // Get task details
+      // Get task details from unit
       const subTasks = await listSubTasks(unitId!)
       const taskMap: Record<string, { description: string }> = {}
       for (const st of subTasks) {
         taskMap[st.sub_task_id] = { description: st.description || st.sub_task_id }
       }
 
-      // Create submission with selected unit info
-      const tasks = (form.task_ids || []).map(tid => ({
+      // Get inherited installation tasks that match form type and purpose
+      const inheritedTasks = await getInheritedTasksForForm(unitId!, form.kind, form.purpose)
+
+      // Create submission with selected unit info - unit tasks first
+      const unitTasks = (form.task_ids || []).map(tid => ({
         sub_task_id: tid,
         description: taskMap[tid]?.description || tid,
         status: 'Pending' as const,
+        inherited: false,
       }))
+
+      // Add inherited installation tasks (marked as inherited)
+      const installationTasks = inheritedTasks.map(t => ({
+        sub_task_id: `INST-${t.id}`,
+        description: t.description,
+        status: 'Pending' as const,
+        inherited: true,
+        installation_task_id: t.id,
+        location: t.location,
+        map_url: t.map_url,
+        instructions: t.instructions,
+      }))
+
+      const tasks = [...unitTasks, ...installationTasks]
 
       // Build unit identifier: UIC-RUC or just RUC
       const selectedUnitId = selectedUnit.uic
         ? `${selectedUnit.uic}-${selectedUnit.ruc}`
         : selectedUnit.ruc
+
+      // Combine task IDs from unit form and installation
+      const allTaskIds = [
+        ...(form.task_ids || []),
+        ...inheritedTasks.map(t => `INST-${t.id}`)
+      ]
 
       const submission = {
         user_id: user.user_id,
@@ -117,7 +142,7 @@ export default function Enroll() {
           unit_name: selectedUnit.unitName,
         },
         tasks,
-        task_ids: form.task_ids,
+        task_ids: allTaskIds,
         completed_count: 0,
         total_count: tasks.length,
         status: 'In_Progress' as const,

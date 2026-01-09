@@ -210,3 +210,27 @@ export const getInheritedSectionsForUnit = async (unitId: string): Promise<Insta
   if (!installation) return []
   return listInstallationSections(installation.id)
 }
+
+// Get inherited tasks that match a specific form type and purpose
+export const getInheritedTasksForForm = async (
+  unitId: string,
+  formType: 'Inbound' | 'Outbound',
+  purpose?: string
+): Promise<InstallationSubTask[]> => {
+  const installation = await getInstallationForUnit(unitId)
+  if (!installation) return []
+
+  const allTasks = await listInstallationSubTasks(installation.id)
+
+  // Filter tasks that match form_type and optionally purpose
+  return allTasks.filter(task => {
+    // Must match form_type
+    if (task.form_type !== formType) return false
+
+    // If purpose is specified on the task, it must match
+    // If no purpose on task, include it for all purposes of this form type
+    if (task.purpose && purpose && task.purpose !== purpose) return false
+
+    return true
+  })
+}

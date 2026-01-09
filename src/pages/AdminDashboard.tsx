@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbPromoteUserToUnitAdmin, sbListSponsorshipCoordinators, type SponsorshipCoordinator } from '@/services/adminService'
-import { sbGetUserByEdipi, sbListUsers } from '@/services/supabaseDataService'
+import { sbGetUserByEdipi, sbListUsers, sbUpdateUser } from '@/services/supabaseDataService'
 import {
   listInstallations,
   createInstallation,
@@ -132,6 +132,10 @@ export default function AdminDashboard() {
   const [assigningUnitAdmin, setAssigningUnitAdmin] = useState(false)
   const [installationSearchQuery, setInstallationSearchQuery] = useState('')
   const [assigningInstaAdmin, setAssigningInstaAdmin] = useState(false)
+  // Edit user unit state
+  const [editUserUnitSearch, setEditUserUnitSearch] = useState('')
+  const [editUserUnitDropdownOpen, setEditUserUnitDropdownOpen] = useState(false)
+  const [updatingUserUnit, setUpdatingUserUnit] = useState(false)
   // Pagination state
   const [unitsPage, setUnitsPage] = useState(1)
   const [unitsPageSize, setUnitsPageSize] = useState(10)
@@ -475,6 +479,23 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleUpdateUserUnit = async (userEdipi: string, userId: string, newUnitId: string) => {
+    setUpdatingUserUnit(true)
+    try {
+      await sbUpdateUser(userId, { unit_id: newUnitId })
+      // Refresh users list
+      const users = await sbListUsers()
+      setAllUsers(users)
+      setEditUserUnitSearch('')
+      setEditUserUnitDropdownOpen(false)
+    } catch (error) {
+      console.error('Failed to update user unit:', error)
+      alert('Failed to update user unit. Please try again.')
+    } finally {
+      setUpdatingUserUnit(false)
+    }
+  }
+
   // Handle removing user as Unit Admin from a specific unit
   const handleRemoveUnitAdmin = async (userEdipi: string, unitKey: string) => {
     try {
@@ -761,6 +782,8 @@ export default function AdminDashboard() {
                             setEditingUserEdipi(null)
                             setUnitSearchQuery('')
                             setInstallationSearchQuery('')
+                            setEditUserUnitSearch('')
+                            setEditUserUnitDropdownOpen(false)
                           }}
                           className="text-gray-400 hover:text-white text-2xl"
                         >
@@ -790,9 +813,75 @@ export default function AdminDashboard() {
                           <p className="text-gray-400 text-sm">MOS</p>
                           <p className="text-white">{editingUser.mos || '-'}</p>
                         </div>
-                        <div>
-                          <p className="text-gray-400 text-sm">Unit</p>
-                          <p className="text-white">{editingUser.unit_id || '-'}</p>
+                        <div className="col-span-2">
+                          <p className="text-gray-400 text-sm mb-2">Unit</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white">{editingUser.unit_id || 'No unit assigned'}</span>
+                            <button
+                              onClick={() => setEditUserUnitDropdownOpen(!editUserUnitDropdownOpen)}
+                              className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                            >
+                              Change
+                            </button>
+                          </div>
+                          {editUserUnitDropdownOpen && (
+                            <div className="mt-2 relative">
+                              <input
+                                type="text"
+                                value={editUserUnitSearch}
+                                onChange={(e) => setEditUserUnitSearch(e.target.value)}
+                                placeholder="Search units by name, UIC, or RUC..."
+                                className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue text-sm"
+                                disabled={updatingUserUnit}
+                              />
+                              {editUserUnitSearch && (
+                                <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-github-dark border border-github-border rounded-lg shadow-lg">
+                                  {units
+                                    .filter((u: Unit) => {
+                                      const q = editUserUnitSearch.toLowerCase()
+                                      return (
+                                        u.unit_name.toLowerCase().includes(q) ||
+                                        u.unit_key.toLowerCase().includes(q) ||
+                                        u.uic.toLowerCase().includes(q) ||
+                                        u.ruc.toLowerCase().includes(q)
+                                      )
+                                    })
+                                    .slice(0, 10)
+                                    .map((unit: Unit) => (
+                                      <button
+                                        key={unit.unit_key}
+                                        onClick={() => handleUpdateUserUnit(editingUserEdipi, editingUser.user_id, unit.unit_key)}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-github-blue hover:bg-opacity-30 border-b border-github-border last:border-b-0"
+                                        disabled={updatingUserUnit}
+                                      >
+                                        <div className="font-medium text-sm">{unit.unit_name}</div>
+                                        <div className="text-xs text-gray-400">{unit.unit_key}</div>
+                                      </button>
+                                    ))}
+                                  {units.filter((u: Unit) => {
+                                    const q = editUserUnitSearch.toLowerCase()
+                                    return (
+                                      u.unit_name.toLowerCase().includes(q) ||
+                                      u.unit_key.toLowerCase().includes(q) ||
+                                      u.uic.toLowerCase().includes(q) ||
+                                      u.ruc.toLowerCase().includes(q)
+                                    )
+                                  }).length === 0 && (
+                                    <div className="px-3 py-2 text-gray-400 text-sm">No matching units found</div>
+                                  )}
+                                </div>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setEditUserUnitDropdownOpen(false)
+                                  setEditUserUnitSearch('')
+                                }}
+                                className="mt-2 px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
