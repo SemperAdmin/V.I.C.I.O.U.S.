@@ -59,6 +59,8 @@ export interface InstallationSubTask {
   location?: string
   map_url?: string
   instructions?: string
+  form_type?: 'Inbound' | 'Outbound'
+  purpose?: 'Fleet_Assistance_Program' | 'TAD_31_plus_days' | 'TAD_30_or_less' | 'PCA' | 'PCS' | 'Separation' | 'Retirement'
   completion_kind?: 'Text' | 'Date' | 'Options' | 'Link'
   completion_label?: string
   completion_options?: string[]

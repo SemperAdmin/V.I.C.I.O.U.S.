@@ -180,6 +180,8 @@ export const updateInstallationSubTask = async (id: number, patch: Partial<Insta
     location: patch.location,
     map_url: patch.map_url,
     instructions: patch.instructions,
+    form_type: patch.form_type,
+    purpose: patch.purpose,
     completion_kind: patch.completion_kind,
     completion_label: patch.completion_label,
     completion_options: patch.completion_options,

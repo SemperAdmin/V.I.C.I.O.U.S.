@@ -51,6 +51,8 @@ export default function InstallationAdminDashboard() {
   const [newTaskLocation, setNewTaskLocation] = useState('')
   const [newTaskMapUrl, setNewTaskMapUrl] = useState('')
   const [newTaskInstructions, setNewTaskInstructions] = useState('')
+  const [newTaskFormType, setNewTaskFormType] = useState<'Inbound' | 'Outbound' | ''>('')
+  const [newTaskPurpose, setNewTaskPurpose] = useState<'Fleet_Assistance_Program' | 'TAD_31_plus_days' | 'TAD_30_or_less' | 'PCA' | 'PCS' | 'Separation' | 'Retirement' | ''>('')
   const [newTaskCompletionKind, setNewTaskCompletionKind] = useState<'Text' | 'Date' | 'Options' | 'Link' | ''>('')
   const [newTaskCompletionLabel, setNewTaskCompletionLabel] = useState('')
   const [newTaskCompletionOptions, setNewTaskCompletionOptions] = useState('')
@@ -275,6 +277,8 @@ export default function InstallationAdminDashboard() {
         location: newTaskLocation.trim() || undefined,
         map_url: newTaskMapUrl.trim() || undefined,
         instructions: newTaskInstructions.trim() || undefined,
+        form_type: newTaskFormType || undefined,
+        purpose: newTaskPurpose || undefined,
         completion_kind: newTaskCompletionKind || undefined,
         completion_label: newTaskCompletionLabel.trim() || undefined,
         completion_options: newTaskCompletionKind === 'Options'
@@ -288,6 +292,8 @@ export default function InstallationAdminDashboard() {
       setNewTaskLocation('')
       setNewTaskMapUrl('')
       setNewTaskInstructions('')
+      setNewTaskFormType('')
+      setNewTaskPurpose('')
       setNewTaskCompletionKind('')
       setNewTaskCompletionLabel('')
       setNewTaskCompletionOptions('')
@@ -779,6 +785,37 @@ export default function InstallationAdminDashboard() {
                           rows={2}
                           className="px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
                         />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-gray-400 text-xs mb-1">Form Type</label>
+                            <select
+                              value={newTaskFormType}
+                              onChange={(e) => setNewTaskFormType(e.target.value as any)}
+                              className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                            >
+                              <option value="">Select form type</option>
+                              <option value="Inbound">Inbound</option>
+                              <option value="Outbound">Outbound</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-gray-400 text-xs mb-1">Purpose</label>
+                            <select
+                              value={newTaskPurpose}
+                              onChange={(e) => setNewTaskPurpose(e.target.value as any)}
+                              className="w-full px-3 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded text-white"
+                            >
+                              <option value="">Select purpose</option>
+                              <option value="PCS">PCS</option>
+                              <option value="PCA">PCA</option>
+                              <option value="TAD_31_plus_days">TAD (31+ days)</option>
+                              <option value="TAD_30_or_less">TAD (30 or less)</option>
+                              <option value="Separation">Separation</option>
+                              <option value="Retirement">Retirement</option>
+                              <option value="Fleet_Assistance_Program">Fleet Assistance Program</option>
+                            </select>
+                          </div>
+                        </div>
                         <select
                           value={newTaskCompletionKind}
                           onChange={(e) => setNewTaskCompletionKind(e.target.value as any)}
@@ -833,8 +870,9 @@ export default function InstallationAdminDashboard() {
                       <tr>
                         <th className="text-left p-2">Section</th>
                         <th className="text-left p-2">Description</th>
-                        <th className="text-left p-2 hidden sm:table-cell">Location</th>
-                        <th className="text-left p-2 hidden md:table-cell">Instructions</th>
+                        <th className="text-left p-2 hidden sm:table-cell">Type</th>
+                        <th className="text-left p-2 hidden sm:table-cell">Purpose</th>
+                        <th className="text-left p-2 hidden md:table-cell">Location</th>
                         <th className="text-left p-2">Actions</th>
                       </tr>
                     </thead>
@@ -847,8 +885,27 @@ export default function InstallationAdminDashboard() {
                               return sec?.display_name || sec?.section_name || '-'
                             })()}
                           </td>
-                          <td className="p-2">{t.description}</td>
+                          <td className="p-2">
+                            <div>{t.description}</div>
+                            {t.instructions && (
+                              <div className="text-xs text-gray-500 mt-1 truncate max-w-[200px]">{t.instructions}</div>
+                            )}
+                          </td>
                           <td className="p-2 hidden sm:table-cell">
+                            {t.form_type ? (
+                              <span className={`px-2 py-0.5 rounded text-xs ${t.form_type === 'Inbound' ? 'bg-green-800 text-green-200' : 'bg-blue-800 text-blue-200'}`}>
+                                {t.form_type}
+                              </span>
+                            ) : '-'}
+                          </td>
+                          <td className="p-2 hidden sm:table-cell">
+                            {t.purpose ? (
+                              <span className="text-semper-gold text-xs">
+                                {t.purpose.replace(/_/g, ' ')}
+                              </span>
+                            ) : '-'}
+                          </td>
+                          <td className="p-2 hidden md:table-cell">
                             {t.map_url ? (
                               <a href={t.map_url} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">
                                 {t.location || 'Map'}
@@ -857,7 +914,6 @@ export default function InstallationAdminDashboard() {
                               t.location || '-'
                             )}
                           </td>
-                          <td className="p-2 hidden md:table-cell max-w-[200px] truncate">{t.instructions || '-'}</td>
                           <td className="p-2">
                             <button
                               onClick={() => handleDeleteTask(t.id)}
