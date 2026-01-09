@@ -2,10 +2,19 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { sbListUnitAdmins, sbUpsertUnitAdmin, sbRemoveUnitAdmin, sbPromoteUserToUnitAdmin, sbListSponsorshipCoordinators, type SponsorshipCoordinator } from '@/services/adminService'
 import { sbGetUserByEdipi, sbListUsers } from '@/services/supabaseDataService'
+import {
+  listInstallations,
+  createInstallation,
+  updateInstallation,
+  deleteInstallation,
+  addInstaAdmin,
+  removeInstaAdmin,
+} from '@/services/supabaseInstallationService'
 import HeaderTools from '@/components/HeaderTools'
 import BrandMark from '@/components/BrandMark'
 import { normalizeOrgRole } from '@/utils/roles'
 import { listSections } from '@/utils/unitStructure'
+import type { Installation } from '@/types'
 
 // Type for unit objects used in the dashboard
 type Unit = {
@@ -93,8 +102,27 @@ export default function AdminDashboard() {
   const [admins, setAdmins] = useState<Array<{ unit_key: string; unit_name: string; admin_user_id: string; ruc?: string }>>([])
   const [assignEdipi, setAssignEdipi] = useState<Record<string, string>>({})
   const [adminProfiles, setAdminProfiles] = useState<Record<string, any>>({})
-  const [tab, setTab] = useState<'units' | 'users'>('units')
+  const [tab, setTab] = useState<'units' | 'users' | 'installations'>('units')
   const [loading, setLoading] = useState(true)
+  // Installation state
+  const [installations, setInstallations] = useState<Installation[]>([])
+  const [installationQuery, setInstallationQuery] = useState('')
+  const [editingInstallationId, setEditingInstallationId] = useState<string | null>(null)
+  const [creatingInstallation, setCreatingInstallation] = useState(false)
+  const [newInstallationName, setNewInstallationName] = useState('')
+  const [newInstallationAcronym, setNewInstallationAcronym] = useState('')
+  const [newInstallationLocation, setNewInstallationLocation] = useState('')
+  const [newInstallationBaseType, setNewInstallationBaseType] = useState('')
+  const [newInstallationCommand, setNewInstallationCommand] = useState('')
+  const [editInstallationName, setEditInstallationName] = useState('')
+  const [editInstallationAcronym, setEditInstallationAcronym] = useState('')
+  const [editInstallationLocation, setEditInstallationLocation] = useState('')
+  const [editInstallationBaseType, setEditInstallationBaseType] = useState('')
+  const [editInstallationCommand, setEditInstallationCommand] = useState('')
+  const [addingInstaAdmin, setAddingInstaAdmin] = useState<string | null>(null)
+  const [newInstaAdminEdipi, setNewInstaAdminEdipi] = useState('')
+  const [installationsPage, setInstallationsPage] = useState(1)
+  const [installationsPageSize, setInstallationsPageSize] = useState(10)
   const [editingUnit, setEditingUnit] = useState<string | null>(null)
   const [addingUnit, setAddingUnit] = useState<string | null>(null)
   const [sectionDisplayMap, setSectionDisplayMap] = useState<Record<string, string>>({})
@@ -136,6 +164,9 @@ export default function AdminDashboard() {
         // Load all users
         const users = await sbListUsers()
         setAllUsers(users)
+        // Load installations
+        const installs = await listInstallations()
+        setInstallations(installs)
         // Load sections for all unique unit_ids to get display names
         const unitIds = Array.from(new Set(users.map(u => u.unit_id).filter(Boolean)))
         const dispMap: Record<string, string> = {}
@@ -253,6 +284,27 @@ export default function AdminDashboard() {
 
   const totalUsersPages = Math.ceil(filteredUsers.length / usersPageSize)
 
+  // Filtered installations
+  const filteredInstallations = installations.filter(i => {
+    const q = installationQuery.trim().toLowerCase()
+    if (!q) return true
+    return (
+      (i.name || '').toLowerCase().includes(q) ||
+      (i.acronym || '').toLowerCase().includes(q) ||
+      (i.location || '').toLowerCase().includes(q) ||
+      (i.command || '').toLowerCase().includes(q) ||
+      (i.id || '').toLowerCase().includes(q)
+    )
+  })
+
+  // Paginated installations
+  const paginatedInstallations = useMemo(() => {
+    const start = (installationsPage - 1) * installationsPageSize
+    return filteredInstallations.slice(start, start + installationsPageSize)
+  }, [filteredInstallations, installationsPage, installationsPageSize])
+
+  const totalInstallationsPages = Math.ceil(filteredInstallations.length / installationsPageSize)
+
   // Reset to page 1 when search query changes
   useEffect(() => {
     setUnitsPage(1)
@@ -261,6 +313,91 @@ export default function AdminDashboard() {
   useEffect(() => {
     setUsersPage(1)
   }, [userQuery])
+
+  useEffect(() => {
+    setInstallationsPage(1)
+  }, [installationQuery])
+
+  // Installation handlers
+  const handleCreateInstallation = async () => {
+    if (!newInstallationName.trim()) return
+    try {
+      const id = newInstallationAcronym.trim().toUpperCase() || newInstallationName.trim().replace(/\s+/g, '_').toUpperCase().slice(0, 10)
+      await createInstallation({
+        id,
+        name: newInstallationName.trim(),
+        acronym: newInstallationAcronym.trim() || undefined,
+        location: newInstallationLocation.trim() || undefined,
+        base_type: newInstallationBaseType.trim() || undefined,
+        command: newInstallationCommand.trim() || undefined,
+        unit_ids: [],
+        sections: [],
+        section_assignments: {},
+        insta_admin_user_ids: [],
+      })
+      setInstallations(await listInstallations())
+      setCreatingInstallation(false)
+      setNewInstallationName('')
+      setNewInstallationAcronym('')
+      setNewInstallationLocation('')
+      setNewInstallationBaseType('')
+      setNewInstallationCommand('')
+    } catch (error) {
+      console.error('Failed to create installation:', error)
+      alert('Failed to create installation. Please try again.')
+    }
+  }
+
+  const handleUpdateInstallation = async (id: string) => {
+    try {
+      await updateInstallation(id, {
+        name: editInstallationName,
+        acronym: editInstallationAcronym || undefined,
+        location: editInstallationLocation || undefined,
+        base_type: editInstallationBaseType || undefined,
+        command: editInstallationCommand || undefined,
+      })
+      setInstallations(await listInstallations())
+      setEditingInstallationId(null)
+    } catch (error) {
+      console.error('Failed to update installation:', error)
+      alert('Failed to update installation. Please try again.')
+    }
+  }
+
+  const handleDeleteInstallation = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this installation?')) return
+    try {
+      await deleteInstallation(id)
+      setInstallations(await listInstallations())
+    } catch (error) {
+      console.error('Failed to delete installation:', error)
+      alert('Failed to delete installation. Please try again.')
+    }
+  }
+
+  const handleAddInstaAdmin = async (installationId: string, edipi: string) => {
+    if (!edipi.trim()) return
+    try {
+      await addInstaAdmin(installationId, edipi.trim())
+      setInstallations(await listInstallations())
+      setAddingInstaAdmin(null)
+      setNewInstaAdminEdipi('')
+    } catch (error) {
+      console.error('Failed to add installation admin:', error)
+      alert('Failed to add installation admin. Please try again.')
+    }
+  }
+
+  const handleRemoveInstaAdmin = async (installationId: string, edipi: string) => {
+    try {
+      await removeInstaAdmin(installationId, edipi)
+      setInstallations(await listInstallations())
+    } catch (error) {
+      console.error('Failed to remove installation admin:', error)
+      alert('Failed to remove installation admin. Please try again.')
+    }
+  }
 
   // Handle assigning user as Unit Admin
   const handleAssignUnitAdmin = async (userEdipi: string, unit: Unit) => {
@@ -323,6 +460,12 @@ export default function AdminDashboard() {
               className={`px-4 py-3 text-sm ${tab === 'users' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
             >
               Users
+            </button>
+            <button
+              onClick={() => setTab('installations')}
+              className={`px-4 py-3 text-sm ${tab === 'installations' ? 'text-white border-b-2 border-github-blue' : 'text-gray-400'}`}
+            >
+              Installations
             </button>
           </div>
           {loading ? (
@@ -679,7 +822,292 @@ export default function AdminDashboard() {
                 )
               })()}
             </>
-          )}
+          ) : tab === 'installations' ? (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <input
+                  className="flex-1 px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-github-blue"
+                  placeholder="Search by name, acronym, location, or command"
+                  value={installationQuery}
+                  onChange={e => setInstallationQuery(e.target.value)}
+                />
+                <button
+                  onClick={() => setCreatingInstallation(true)}
+                  className="ml-4 px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded"
+                >
+                  + New Installation
+                </button>
+              </div>
+              <div className="text-gray-400 text-sm mb-2">{filteredInstallations.length} installations</div>
+              <div className="overflow-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-gray-400">
+                    <tr>
+                      <th className="text-left p-2">Name</th>
+                      <th className="text-left p-2">Acronym</th>
+                      <th className="text-left p-2">Location</th>
+                      <th className="text-left p-2">Type</th>
+                      <th className="text-left p-2">Command</th>
+                      <th className="text-left p-2">Units</th>
+                      <th className="text-left p-2">Admins</th>
+                      <th className="text-left p-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedInstallations.map(inst => (
+                      <tr key={inst.id} className="border-t border-github-border text-gray-300 hover:bg-[#AD1B3F] transition-colors">
+                        <td className="p-2">
+                          {editingInstallationId === inst.id ? (
+                            <input
+                              value={editInstallationName}
+                              onChange={(e) => setEditInstallationName(e.target.value)}
+                              className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-sm"
+                            />
+                          ) : (
+                            inst.name
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingInstallationId === inst.id ? (
+                            <input
+                              value={editInstallationAcronym}
+                              onChange={(e) => setEditInstallationAcronym(e.target.value)}
+                              className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-sm"
+                            />
+                          ) : (
+                            inst.acronym || '-'
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingInstallationId === inst.id ? (
+                            <input
+                              value={editInstallationLocation}
+                              onChange={(e) => setEditInstallationLocation(e.target.value)}
+                              className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-sm"
+                            />
+                          ) : (
+                            inst.location || '-'
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingInstallationId === inst.id ? (
+                            <input
+                              value={editInstallationBaseType}
+                              onChange={(e) => setEditInstallationBaseType(e.target.value)}
+                              className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-sm"
+                            />
+                          ) : (
+                            inst.base_type || '-'
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingInstallationId === inst.id ? (
+                            <input
+                              value={editInstallationCommand}
+                              onChange={(e) => setEditInstallationCommand(e.target.value)}
+                              className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-sm"
+                            />
+                          ) : (
+                            inst.command || '-'
+                          )}
+                        </td>
+                        <td className="p-2">{inst.unit_ids?.length || 0}</td>
+                        <td className="p-2">
+                          {addingInstaAdmin === inst.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                value={newInstaAdminEdipi}
+                                onChange={(e) => setNewInstaAdminEdipi(e.target.value)}
+                                placeholder="EDIPI"
+                                className="w-24 px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs"
+                              />
+                              <button
+                                onClick={() => handleAddInstaAdmin(inst.id, newInstaAdminEdipi)}
+                                className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={() => { setAddingInstaAdmin(null); setNewInstaAdminEdipi('') }}
+                                className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs"
+                              >
+                                X
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {(inst.insta_admin_user_ids || []).map(edipi => {
+                                const profile = adminProfiles[edipi]
+                                const name = profile ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') : ''
+                                return (
+                                  <span key={edipi} className="inline-flex items-center gap-1 px-2 py-0.5 bg-github-gray bg-opacity-20 border border-github-border rounded text-xs">
+                                    {name || edipi}
+                                    <button
+                                      onClick={() => handleRemoveInstaAdmin(inst.id, edipi)}
+                                      className="text-red-400 hover:text-red-300"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                )
+                              })}
+                              <button
+                                onClick={() => setAddingInstaAdmin(inst.id)}
+                                className="px-2 py-0.5 bg-github-blue bg-opacity-20 border border-github-blue rounded text-xs text-github-blue hover:bg-opacity-40"
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingInstallationId === inst.id ? (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleUpdateInstallation(inst.id)}
+                                className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingInstallationId(null)}
+                                className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingInstallationId(inst.id)
+                                  setEditInstallationName(inst.name)
+                                  setEditInstallationAcronym(inst.acronym || '')
+                                  setEditInstallationLocation(inst.location || '')
+                                  setEditInstallationBaseType(inst.base_type || '')
+                                  setEditInstallationCommand(inst.command || '')
+                                }}
+                                className="px-2 py-1 bg-github-blue hover:bg-blue-600 text-white rounded text-xs"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteInstallation(inst.id)}
+                                className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <PaginationControls
+                currentPage={installationsPage}
+                totalPages={totalInstallationsPages}
+                pageSize={installationsPageSize}
+                totalItems={filteredInstallations.length}
+                onPageChange={setInstallationsPage}
+                onPageSizeChange={setInstallationsPageSize}
+              />
+
+              {/* Create Installation Modal */}
+              {creatingInstallation && (
+                <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+                  <div className="bg-github-dark border border-github-border rounded-xl p-6 max-w-lg w-full mx-4">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-semibold text-white">Create Installation</h3>
+                      <button
+                        onClick={() => {
+                          setCreatingInstallation(false)
+                          setNewInstallationName('')
+                          setNewInstallationAcronym('')
+                          setNewInstallationLocation('')
+                          setNewInstallationBaseType('')
+                          setNewInstallationCommand('')
+                        }}
+                        className="text-gray-400 hover:text-white text-2xl"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Name *</label>
+                        <input
+                          value={newInstallationName}
+                          onChange={(e) => setNewInstallationName(e.target.value)}
+                          placeholder="e.g., Marine Corps Base Camp Lejeune"
+                          className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Acronym</label>
+                        <input
+                          value={newInstallationAcronym}
+                          onChange={(e) => setNewInstallationAcronym(e.target.value)}
+                          placeholder="e.g., CLNC"
+                          className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Location</label>
+                        <input
+                          value={newInstallationLocation}
+                          onChange={(e) => setNewInstallationLocation(e.target.value)}
+                          placeholder="e.g., Jacksonville, NC"
+                          className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Base Type</label>
+                        <input
+                          value={newInstallationBaseType}
+                          onChange={(e) => setNewInstallationBaseType(e.target.value)}
+                          placeholder="e.g., Base, Air Station, Training"
+                          className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Command</label>
+                        <input
+                          value={newInstallationCommand}
+                          onChange={(e) => setNewInstallationCommand(e.target.value)}
+                          placeholder="e.g., MCIEAST, MCIWEST"
+                          className="w-full px-4 py-2 bg-github-gray bg-opacity-20 border border-github-border rounded-lg text-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-6 flex justify-end gap-2">
+                      <button
+                        onClick={handleCreateInstallation}
+                        disabled={!newInstallationName.trim()}
+                        className="px-4 py-2 bg-github-blue hover:bg-blue-600 text-white rounded disabled:opacity-50"
+                      >
+                        Create
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCreatingInstallation(false)
+                          setNewInstallationName('')
+                          setNewInstallationAcronym('')
+                          setNewInstallationLocation('')
+                          setNewInstallationBaseType('')
+                          setNewInstallationCommand('')
+                        }}
+                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : null}
         </div>
       </main>
     </div>
