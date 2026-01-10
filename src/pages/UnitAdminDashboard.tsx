@@ -19,6 +19,13 @@ import { getUnitAdmins, addUnitAdmin, removeUnitAdmin } from '@/utils/unitAdmins
 import { sbListUsersByRuc, sbUpdateUser } from '@/services/supabaseDataService'
 import { QRCodeSVG } from 'qrcode.react'
 
+// Input style constants for maintainability
+const baseInputStyle = 'w-full px-2 sm:px-3 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm'
+const editInputStyle = 'w-full px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs sm:text-sm'
+const smallInputStyle = 'w-full px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs'
+const smallInputWithPlaceholderStyle = 'w-full px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs'
+const smallSelectStyle = 'px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs'
+
 export default function UnitAdminDashboard() {
   const { user } = useAuthStore()
   const [tab, setTab] = useState<'structure' | 'tasks' | 'members' | 'forms' | 'assign'>('structure')
@@ -628,7 +635,7 @@ export default function UnitAdminDashboard() {
                           value={newCompanyId}
                           onChange={e => setNewCompanyId(e.target.value)}
                           placeholder="Company"
-                          className="w-full min-w-[80px] px-2 sm:px-3 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm"
+                          className={`min-w-[80px] ${baseInputStyle}`}
                         />
                       </td>
                       <td className="p-2">
@@ -636,7 +643,7 @@ export default function UnitAdminDashboard() {
                           value={newSectionName}
                           onChange={e => setNewSectionName(e.target.value)}
                           placeholder="Code"
-                          className="w-full min-w-[80px] px-2 sm:px-3 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm"
+                          className={`min-w-[80px] ${baseInputStyle}`}
                         />
                       </td>
                       <td className="p-2">
@@ -644,7 +651,7 @@ export default function UnitAdminDashboard() {
                           value={newSectionDisplay}
                           onChange={e => setNewSectionDisplay(e.target.value)}
                           placeholder="Name"
-                          className="w-full min-w-[80px] px-2 sm:px-3 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm"
+                          className={`min-w-[80px] ${baseInputStyle}`}
                         />
                       </td>
                       <td className="p-2">
@@ -685,21 +692,21 @@ export default function UnitAdminDashboard() {
                       <tr key={s.id} className="border-t border-github-border text-gray-300">
                         <td className="p-2">
                           {editingId === s.id ? (
-                            <input value={editCompanyId} onChange={e => setEditCompanyId(e.target.value)} className="w-full min-w-[60px] px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs sm:text-sm" />
+                            <input value={editCompanyId} onChange={e => setEditCompanyId(e.target.value)} className={`min-w-[60px] ${editInputStyle}`} />
                           ) : (
                             (s as any).company_id || ''
                           )}
                         </td>
                         <td className="p-2">
                           {editingId === s.id ? (
-                            <input value={editSectionCode} onChange={e => setEditSectionCode(e.target.value)} className="w-full min-w-[60px] px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs sm:text-sm" />
+                            <input value={editSectionCode} onChange={e => setEditSectionCode(e.target.value)} className={`min-w-[60px] ${editInputStyle}`} />
                           ) : (
                             s.section_name
                           )}
                         </td>
                         <td className="p-2">
                           {editingId === s.id ? (
-                            <input value={editDisplay} onChange={e => setEditDisplay(e.target.value)} className="w-full min-w-[60px] px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs sm:text-sm" />
+                            <input value={editDisplay} onChange={e => setEditDisplay(e.target.value)} className={`min-w-[60px] ${editInputStyle}`} />
                           ) : (
                             (s as any).display_name || ''
                           )}
@@ -970,18 +977,18 @@ export default function UnitAdminDashboard() {
                           return (sec as any)?.display_name || sec?.section_name || ''
                         })()}</td>
                         <td className="p-2 max-w-[150px] sm:max-w-none truncate sm:whitespace-normal">{taskEditingId === t.id ? (
-                          <input value={taskEditDescription} onChange={e => setTaskEditDescription(e.target.value)} className="w-full min-w-[100px] px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs sm:text-sm" />
+                          <input value={taskEditDescription} onChange={e => setTaskEditDescription(e.target.value)} className={`min-w-[100px] ${editInputStyle}`} />
                         ) : (t.description)}</td>
                         <td className="p-2 hidden sm:table-cell">{taskEditingId === t.id ? (
                           <div className="grid grid-cols-1 gap-1">
-                            <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} placeholder="Location" className="w-full px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs" />
-                            <input value={taskEditLocationUrl} onChange={e => setTaskEditLocationUrl(e.target.value)} placeholder="Map URL" className="w-full px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs" />
+                            <input value={taskEditLocation} onChange={e => setTaskEditLocation(e.target.value)} placeholder="Location" className={smallInputWithPlaceholderStyle} />
+                            <input value={taskEditLocationUrl} onChange={e => setTaskEditLocationUrl(e.target.value)} placeholder="Map URL" className={smallInputWithPlaceholderStyle} />
                           </div>
                         ) : ((t as any).map_url || t.location ? (
                           <a href={((t as any).map_url || googleMapsLink(t.location || ''))} target="_blank" rel="noopener noreferrer" className="text-semper-gold hover:underline">{t.location || 'Map'}</a>
                         ) : '')}</td>
                         <td className="p-2 hidden md:table-cell max-w-[150px] truncate">{taskEditingId === t.id ? (
-                          <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className="w-full px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs" />
+                          <input value={taskEditInstructions} onChange={e => setTaskEditInstructions(e.target.value)} className={smallInputStyle} />
                         ) : (t.instructions || '')}</td>
                         <td className="p-2 hidden lg:table-cell">{(t.responsible_user_ids || []).map((id: string) => {
                           const u = edipiMap[id]
@@ -992,15 +999,15 @@ export default function UnitAdminDashboard() {
                         }).join(', ')}</td>
                         <td className="p-2 hidden sm:table-cell">{taskEditingId === t.id ? (
                           <div className="grid grid-cols-1 gap-1">
-                            <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className="px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white text-xs">
+                            <select value={taskEditCompletionKind} onChange={e => setTaskEditCompletionKind(e.target.value as any)} className={smallSelectStyle}>
                               <option value="">Type</option>
                               <option value="Text">Text</option>
                               <option value="Date">Date</option>
                               <option value="Options">Options</option>
                             </select>
-                            <input value={taskEditCompletionLabel} onChange={e => setTaskEditCompletionLabel(e.target.value)} placeholder="Label" className="px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs" />
+                            <input value={taskEditCompletionLabel} onChange={e => setTaskEditCompletionLabel(e.target.value)} placeholder="Label" className={smallInputWithPlaceholderStyle} />
                             {taskEditCompletionKind === 'Options' && (
-                              <input value={taskEditCompletionOptions} onChange={e => setTaskEditCompletionOptions(e.target.value)} placeholder="Options" className="px-2 py-1 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs" />
+                              <input value={taskEditCompletionOptions} onChange={e => setTaskEditCompletionOptions(e.target.value)} placeholder="Options" className={smallInputWithPlaceholderStyle} />
                             )}
                           </div>
                         ) : (
