@@ -22,6 +22,10 @@ import type { Installation, InstallationSection, InstallationSubTask } from '@/t
 import { LocalUserProfile } from '@/services/localDataService'
 import { UNITS } from '@/utils/units'
 
+// Input style constants for maintainability
+const baseInputStyle = 'w-full px-2 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm'
+const editInputStyle = 'w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs'
+
 export default function InstallationAdminDashboard() {
   const { user } = useAuthStore()
   const [tab, setTab] = useState<'info' | 'sections' | 'tasks' | 'units' | 'members'>('sections')
@@ -589,7 +593,7 @@ export default function InstallationAdminDashboard() {
                             value={newSectionName}
                             onChange={(e) => setNewSectionName(e.target.value)}
                             placeholder="Code"
-                            className="w-full min-w-[80px] px-2 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm"
+                            className={`min-w-[80px] ${baseInputStyle}`}
                           />
                         </td>
                         <td className="p-2">
@@ -597,7 +601,7 @@ export default function InstallationAdminDashboard() {
                             value={newSectionDisplay}
                             onChange={(e) => setNewSectionDisplay(e.target.value)}
                             placeholder="Display Name"
-                            className="w-full min-w-[80px] px-2 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm"
+                            className={`min-w-[80px] ${baseInputStyle}`}
                           />
                         </td>
                         <td className="p-2 hidden sm:table-cell">
@@ -605,7 +609,7 @@ export default function InstallationAdminDashboard() {
                             value={newSectionLocation}
                             onChange={(e) => setNewSectionLocation(e.target.value)}
                             placeholder="Location"
-                            className="w-full px-2 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm"
+                            className={baseInputStyle}
                           />
                         </td>
                         <td className="p-2 hidden sm:table-cell">
@@ -613,7 +617,7 @@ export default function InstallationAdminDashboard() {
                             value={newSectionPhone}
                             onChange={(e) => setNewSectionPhone(e.target.value)}
                             placeholder="Phone"
-                            className="w-full px-2 py-2 bg-black bg-opacity-40 border border-github-border rounded text-white placeholder-gray-400 text-xs sm:text-sm"
+                            className={baseInputStyle}
                           />
                         </td>
                         <td className="p-2">
@@ -633,7 +637,7 @@ export default function InstallationAdminDashboard() {
                               <input
                                 value={editSectionName}
                                 onChange={(e) => setEditSectionName(e.target.value)}
-                                className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs"
+                                className={editInputStyle}
                               />
                             ) : (
                               s.section_name
@@ -644,7 +648,7 @@ export default function InstallationAdminDashboard() {
                               <input
                                 value={editSectionDisplay}
                                 onChange={(e) => setEditSectionDisplay(e.target.value)}
-                                className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs"
+                                className={editInputStyle}
                               />
                             ) : (
                               s.display_name || '-'
@@ -655,7 +659,7 @@ export default function InstallationAdminDashboard() {
                               <input
                                 value={editSectionLocation}
                                 onChange={(e) => setEditSectionLocation(e.target.value)}
-                                className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs"
+                                className={editInputStyle}
                               />
                             ) : (
                               s.physical_location || '-'
@@ -666,7 +670,7 @@ export default function InstallationAdminDashboard() {
                               <input
                                 value={editSectionPhone}
                                 onChange={(e) => setEditSectionPhone(e.target.value)}
-                                className="w-full px-2 py-1 bg-github-gray bg-opacity-20 border border-github-border rounded text-white text-xs"
+                                className={editInputStyle}
                               />
                             ) : (
                               s.phone_number || '-'
